@@ -1,0 +1,788 @@
+{
+  "name": "Sub - Acciones Gmail",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "id"
+            },
+            {
+              "name": "categoria"
+            },
+            {
+              "name": "output",
+              "type": "object"
+            },
+            {
+              "name": "from"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -352,
+        96
+      ],
+      "id": "d6c2d9c6-2171-4139-ab10-c799e6a370ed",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.categoria }}",
+                    "rightValue": "RUIDO_COMERCIAL",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "9bb0c7ea-483c-45f1-84c2-e6f4cbd55d71"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "25b59923-ac0c-4387-9566-a1752b5973e5",
+                    "leftValue": "={{ $json.categoria }}",
+                    "rightValue": "^TRABAJO_REMOTO$\n^EVENTO_DE_PAGO$\n^IA_Y_EMPRENDIMIENTO$\n^INVERSIONES$\n^SALUD/NATURAL$",
+                    "operator": {
+                      "type": "string",
+                      "operation": "regex"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -64,
+        64
+      ],
+      "id": "59887593-5b0e-4207-baa5-1d3a455d71cf",
+      "name": "SWITCH CATEGORIA"
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $json.id }}",
+        "labelIds": [
+          "Label_6138867044884961130"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        256,
+        224
+      ],
+      "id": "667aba81-1228-4429-bb26-19d61b378e0f",
+      "name": "IA-REVISION",
+      "webhookId": "cfe5cd3e-6b04-4b71-a3f2-07cf7a3c044b",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "eTRbfapaMMpAgV3H",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $json.id }}",
+        "labelIds": "={{ \n  ({\n    'EVENTO_DE_PAGO': 'Label_5520207168492791595',\n    'IA_Y_EMPRENDIMIENTO': 'Label_1116150865929736285',\n    'TRABAJO_REMOTO': 'Label_6767717741231986689',\n    'INVERSIONES':         'Label_5875726024538814156',\n    'SALUD/NATURAL':       'Label_6929204943850250196'\n  })[$json.output.categoria]\n}}"
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        256,
+        96
+      ],
+      "id": "eadbe377-28d4-4c42-a7f4-eda60dd514a4",
+      "name": "Gastos/IA/Remoto",
+      "webhookId": "cfe5cd3e-6b04-4b71-a3f2-07cf7a3c044b",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "eTRbfapaMMpAgV3H",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $json.id }}",
+        "labelIds": [
+          "Label_8608903593625801920"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        256,
+        -48
+      ],
+      "id": "a82fd804-ee20-4d5d-b3e5-fe66e950fb3b",
+      "name": "IA-Spam",
+      "webhookId": "cfe5cd3e-6b04-4b71-a3f2-07cf7a3c044b",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "eTRbfapaMMpAgV3H",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "removeLabels",
+        "messageId": "={{ $json.id }}",
+        "labelIds": [
+          "INBOX"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        496,
+        -48
+      ],
+      "id": "ef843f8a-6415-4cca-a32f-3c2d50e91064",
+      "name": "Remove label from message",
+      "webhookId": "94c60f0c-e961-4c0c-a0e1-f1d502b08931",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "eTRbfapaMMpAgV3H",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst LIMIT = 4;\n\nconsole.log('Items recibidos:', items.length);\nitems.forEach((item, i) => {\n  console.log(`Item ${i}:`, JSON.stringify(item.json).substring(0, 200));\n});\n// Contador local, vive dentro de esta ejecución\nconst batchCounter = {};\n\nreturn items.map(item => {\n  const from = item.json.from;\n  const categoria = item.json.output?.categoria?.toUpperCase();\n  const key = `${from}__${categoria}`;\n\n  const existingCount = item.json.historyCount;\n  const writtenThisBatch = batchCounter[key] || 0;\n  const totalCount = existingCount + writtenThisBatch;\n\n  if (totalCount < LIMIT) {\n    batchCounter[key] = writtenThisBatch + 1;\n    return { json: { action: 'APPEND', id: item.json.id, from, output: item.json.output } };\n  }\n\n  const sorted = (item.json.historyRows || [])\n    .sort((a, b) => new Date(a.updated).getTime() - new Date(b.updated).getTime());\n\n  return { json: {\n    action: 'UPDATE',\n    rowId: sorted[0].row_number,\n    id: item.json.id,\n    from,\n    output: item.json.output\n  }};\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        544
+      ],
+      "id": "1c5449c8-5764-4f08-baf8-b9cf42a32742",
+      "name": "Define Action"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "=APPEND",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "22b618eb-2968-4d74-86f5-8fe343c512fd"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b88b8b2e-3124-470a-9d77-b0cb0b5bbb16",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "UPDATE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        432,
+        528
+      ],
+      "id": "9cfd2103-2a21-43bb-a640-9ff46bcee230",
+      "name": "Switch Append/Update"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM",
+          "mode": "list",
+          "cachedResultName": "ConfigOrganizationMails",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1751572867,
+          "mode": "list",
+          "cachedResultName": "MemoriaHistorica",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit#gid=1751572867"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "categoria": "={{ $json.output.categoria.toUpperCase() }}",
+            "patron": "={{ $json.output.razonamiento_tecnico }}",
+            "is_manual": "false",
+            "updated": "={{ $now}}",
+            "messageID": "={{ $json.id }}",
+            "remitente": "={{ $json.from }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "messageID",
+              "displayName": "messageID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "remitente",
+              "displayName": "remitente",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "categoria",
+              "displayName": "categoria",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "patron",
+              "displayName": "patron",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "is_manual",
+              "displayName": "is_manual",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated",
+              "displayName": "updated",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        640,
+        528
+      ],
+      "id": "039c22fa-c6d6-4bb1-a60f-5d0c1471d0ed",
+      "name": "Accion Append",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "H7q9Yx4vgRbrVNwZ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM",
+          "mode": "list",
+          "cachedResultName": "ConfigOrganizationMails",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1751572867,
+          "mode": "list",
+          "cachedResultName": "MemoriaHistorica",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit#gid=1751572867"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "categoria": "={{ $json.output.categoria.toUpperCase() }}",
+            "patron": "={{ $json.output.razonamiento_tecnico }}",
+            "updated": "={{ $now }}",
+            "row_number": "={{ $json.rowId }}",
+            "messageID": "={{ $json.id }}",
+            "remitente": "={{ $json.from }}",
+            "is_manual": "false"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "messageID",
+              "displayName": "messageID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "remitente",
+              "displayName": "remitente",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "categoria",
+              "displayName": "categoria",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "patron",
+              "displayName": "patron",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "is_manual",
+              "displayName": "is_manual",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "updated",
+              "displayName": "updated",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        656,
+        704
+      ],
+      "id": "be3ded4e-c556-4c60-874f-28e329b07bfa",
+      "name": "Action Update",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "H7q9Yx4vgRbrVNwZ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const historicalData = (() => {\n  try { return $('Get History Memorial').all(); } \n  catch (e) { return []; }\n})();\n\nreturn $('When Executed by Another Workflow').all().map(item => {\n  const fromEmail = item.json.from;\n  const categoria = item.json.categoria?.toUpperCase();\n\n  const matches = historicalData.filter(h =>\n    h.json &&\n    Object.keys(h.json).length > 0 &&\n    h.json.remitente === fromEmail &&\n    h.json.categoria?.toUpperCase() === categoria\n  );\n\n  return {\n    json: {\n      id:          item.json.id,\n      from:        fromEmail,\n      output:      item.json.output,\n      historyRows: matches.map(h => ({\n        row_number: h.json.row_number,\n        updated:    h.json.updated\n      })),\n      historyCount: matches.length\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        544
+      ],
+      "id": "9fb3ce21-ee2b-4be6-9770-1a3462ddb3ed",
+      "name": "Get History by mail/categoria"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM",
+          "mode": "list",
+          "cachedResultName": "ConfigOrganizationMails",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1751572867,
+          "mode": "list",
+          "cachedResultName": "MemoriaHistorica",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit#gid=1751572867"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -128,
+        352
+      ],
+      "id": "dd95fb08-fe09-445e-9116-e819dbaa556c",
+      "name": "Get History Memorial",
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "H7q9Yx4vgRbrVNwZ",
+          "name": "Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "numberInputs": 5
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        992,
+        144
+      ],
+      "id": "ef899579-d4f6-4ca4-82cf-2d53ac89c4a8",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"status\": \"ok\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1152,
+        192
+      ],
+      "id": "51ce2d20-5cfc-4c53-873b-2955551f166f",
+      "name": "Edit Fields",
+      "executeOnce": true
+    }
+  ],
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "id": 1234445,
+          "categoria": "AMBIGUO",
+          "output": {
+            "categoria": "AMBIGUO",
+            "confianza": 0.8,
+            "necesita_pdf": true,
+            "razonamiento_tecnico": "El contenido del correo se centra en aclaraciones relacionadas con una asesoría financiera y carece de elementos claros de pago o facturación."
+          },
+          "from": "vero.zacarias@gmail.com"
+        }
+      },
+      {
+        "json": {
+          "id": 1234445,
+          "categoria": "RUIDO_COMERCIAL",
+          "output": {
+            "categoria": "AMBIGUO",
+            "confianza": 0.8,
+            "necesita_pdf": true,
+            "razonamiento_tecnico": "El contenido del correo se centra en aclaraciones relacionadas con una asesoría financiera y carece de elementos claros de pago o facturación."
+          },
+          "from": "clientes@mujer-financiera.com"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "SWITCH CATEGORIA": {
+      "main": [
+        [
+          {
+            "node": "IA-Spam",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gastos/IA/Remoto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IA-REVISION",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [],
+        [],
+        []
+      ]
+    },
+    "IA-Spam": {
+      "main": [
+        [
+          {
+            "node": "Remove label from message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Get History Memorial",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "SWITCH CATEGORIA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Define Action": {
+      "main": [
+        [
+          {
+            "node": "Switch Append/Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Append/Update": {
+      "main": [
+        [
+          {
+            "node": "Accion Append",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Action Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get History by mail/categoria": {
+      "main": [
+        [
+          {
+            "node": "Define Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get History Memorial": {
+      "main": [
+        [
+          {
+            "node": "Get History by mail/categoria",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove label from message": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gastos/IA/Remoto": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "IA-REVISION": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Accion Append": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Action Update": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "73db1873-a589-444c-8343-bce6f5d48942",
+  "meta": {
+    "instanceId": "90d0cd775b8b317d93028fa9dac1a8444d7abab6b6d67d7d742eaaaba2878ec3"
+  },
+  "id": "hB05UHfCyonK4lzy",
+  "tags": []
+}

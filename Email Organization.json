@@ -1,0 +1,2000 @@
+{
+  "name": "Email Organization",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -480,
+        -368
+      ],
+      "id": "c2ad4517-16ff-4253-ad2f-db1eb10137ca",
+      "name": "7 am clock"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Iteramos sobre todos los mensajes del lote diario\nreturn $input.all().map(item => {\n // 1. Detectar adjuntos por content-type en vez de binary\n  const contentType = item.json.headers['content-type'] || '';\n  const hasAttachment = contentType.toLowerCase().includes('multipart/mixed');\n  \n  // 2. Limpieza de Ruido HTML\n  // Quitamos bloques de estilo, scripts y tags para dejar solo el texto\n  const rawHtml = item.json.html || \"\";\n // 1. Eliminamos bloques de código que no contienen texto visible (scripts, estilos, cabeceras)\n  let cleanText = rawHtml.replace(/<(style|script|head|meta|title|noscript)[^>]*>[\\s\\S]*?<\\/\\1>/gi, '');\n\n  // 2. Convertimos los tags HTML restantes en espacios\n  cleanText = cleanText.replace(/<[^>]+>/g, ' ');\n\n  // 3. ELIMINACIÓN UNIVERSAL DE ENTIDADES HTML\n  // Esto busca cualquier cosa que empiece por '&' y termine en ';' y lo vuelve un espacio\n  // (esto elimina &nbsp;, &aacute;, &amp;, etc., de golpe)\n  cleanText = cleanText.replace(/&[a-z0-9#]+;/gi, ' ');\n\n  // 4. LIMPIEZA DE ESPACIOS (El \"super colapsador\")\n  // \\s: espacios, tabs, saltos de linea\n  // \\u00A0: El código unicode del &nbsp; real\n  // \\u200B-\\uFEFF: Caracteres de control invisibles\n  cleanText = cleanText.replace(/[\\s\\u00A0\\u200B\\u200C\\u200D\\uFEFF]+/g, ' ');\n  // 3. Decodificación de Headers (Asunto y Remitente)\n  // Gmail a veces manda los headers encodeados en Base64/Quoted-Printable\n  const decodeHeader = (str) => {\n    if (!str) return \"\";\n    try {\n      // Intentamos una decodificación básica si viene con el formato =?UTF-8?B?...?=\n      return str.replace(/=\\?UTF-8\\?B\\?([^\\?]+)\\?=/gi, (match, p1) => Buffer.from(p1, 'base64').toString('utf8'));\n    } catch (e) { return str; }\n  };\n\n  const subject = decodeHeader(item.json.subject);\n  const from = decodeHeader(item.json.from.value[0].address);\n\n  return {\n    json: {\n      id: item.json.id,\n      from: from,\n      subject: subject,\n      // Recortamos a 2500 caracteres: suficiente para la IA, amable con tu bolsillo\n      body_summary: cleanText.substring(0, 2500),\n      hasAttachment: hasAttachment\n    },\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1664,
+        160
+      ],
+      "id": "fb871ffb-d673-45f9-b71d-5a88cd4e4113",
+      "name": "Clean Html body"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "=attachment_0",
+        "options": {
+          "keepSource": "json"
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        1664,
+        -640
+      ],
+      "id": "6de9fb99-3ec0-4822-a102-1d027ff004fc",
+      "name": "Extract from File",
+      "alwaysOutputData": true,
+      "retryOnFail": false,
+      "executeOnce": false,
+      "notesInFlow": false,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM",
+          "mode": "list",
+          "cachedResultName": "ConfigOrganizationMails",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "WhileList",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -304,
+        -160
+      ],
+      "id": "0c44ac45-192d-4a37-a2c4-6c60336da15c",
+      "name": "Get White List",
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "H7q9Yx4vgRbrVNwZ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f1edef8e-ea66-4ac6-95be-4d2526d58742",
+              "leftValue": "={{ $json.isWhitelisted }}",
+              "rightValue": "={{ $('Get White List').item.json.Remitente }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1216,
+        112
+      ],
+      "id": "2244f960-e657-4eea-8e5f-15a807350994",
+      "name": "It is WhiteList?"
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Loop Over 5 messages').item.json.id }}",
+        "labelIds": [
+          "Label_8173514379906059838"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2912,
+        -128
+      ],
+      "id": "95c2b947-e45f-4923-b8b5-e0f1935254e1",
+      "name": "Mark as FAMILY/IMPORTANTE",
+      "webhookId": "8a301e73-8c71-4192-9297-9073209176e0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "eTRbfapaMMpAgV3H",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "responsesApiEnabled": false,
+        "options": {
+          "responseFormat": "json_object"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        2112,
+        384
+      ],
+      "id": "23d70c59-89e7-4126-a230-21702028cae4",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "vs9jqdQLN9s67mse",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// 1. Obtenemos los datos\nlet historicalData = [];\ntry {\n  historicalData = $(\"Get History Memorial\").all();\n} catch (e) {\n  historicalData = [];\n}\n\nconst item = $input.item; \n\n// 2. Filtramos historial del remitente actual\nconst validHistory = historicalData.filter(h => \n  h.json && \n  Object.keys(h.json).length > 0 && \n  h.json.remitente === item.json.from // <--- ESTA ES LA MAGIA\n);\n\n// 3. Construimos el string con los ejemplos específicos\nconst historialStr = validHistory.length > 0 \n  ? validHistory.map(h => `- Categoría: ${h.json.categoria} | Resumen: ${h.json.patron} | Es Manual: ${h.json.is_manual}`).join('\\n') \n  : \"No hay historial previo para este remitente específico.\";\n\n// 4. Armamos el prompt final\nconst finalPrompt = `\n### CONTEXTO DE REFERENCIA (MEMORIA) ###\n${historialStr}\n\n### DATOS DEL CORREO ACTUAL ###\n- ASUNTO: ${item.json.subject}\n- CUERPO: ${item.json.body_summary}\n- ADJUNTO (PDF): ${item.json.hasAttachment ? \"Sí, pero no descargado aún.\" : \"No tiene adjunto.\"}\n\n### TAREA ###\nAnaliza el correo actual basándote en el historial (si existe). \nSi el remitente ya fue clasificado antes, intenta mantener la coherencia. Tienen prioridad los que fueron clasificados manualmente.\nResponde siguiendo el formato JSON solicitado anteriormente.\n`;\n\nreturn {\n  json: {\n    id: item.json.id,\n    from: item.json.from,\n    subject: item.json.subject,\n    hasAttachment: item.json.hasAttachment,\n    body: item.json.body_summary,\n    ia_prompt: finalPrompt\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1888,
+        160
+      ],
+      "id": "b9e3885a-d513-4364-a98b-6795095b64f8",
+      "name": "Get IA request",
+      "alwaysOutputData": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM",
+          "mode": "list",
+          "cachedResultName": "ConfigOrganizationMails",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1751572867,
+          "mode": "list",
+          "cachedResultName": "MemoriaHistorica",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit#gid=1751572867"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        624,
+        480
+      ],
+      "id": "8dd7325c-0c5e-4c37-bf98-52faf6cb2a5a",
+      "name": "Get History Memorial",
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "H7q9Yx4vgRbrVNwZ",
+          "name": "Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"categoria\": \"STRING\",\n  \"confianza\": \"FLOAT\",\n  \"necesita_pdf\": \"BOOLEAN\",\n  \"razonamiento_tecnico\": \"STRING\",\n  \"meta\": {\n    \"is_historical_match\": \"BOOLEAN\",\n    \"detected_entities\": \"ARRAY\"\n  }\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2256,
+        400
+      ],
+      "id": "f2b1b93c-9bc3-4183-bae2-04f2060a4299",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.ia_prompt }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "## ROL\nOrquestador Semántico de Correos.\n\n## ONTOLOGÍA Y REGLAS DE NEGOCIO\n1. EVENTO_DE_PAGO: Solo registros financieros reales (facturas, recibos, avisos bancarios). \n   - REGLA NEGATIVA: Ignorar ofertas comerciales, \"paywalls\" de noticias o promociones de descuento.\n2. IA_Y_EMPRENDIMIENTO: Contenido técnico/estratégico. Excluir \"pitches\" de venta de servicios.\n3. TRABAJO_REMOTO: Específicamente recruiting y cultura de teletrabajo.\n4. RUIDO_COMERCIAL: Marketing, spam, newsletters de baja señal.\n5. INVERSIONES: Finanzas, economia y novedades sobre el mercado de bolsa.\n6. SALUD/NATURAL: Referido a salud del cuerpo humano, recetas e indicaciones medicas, todo lo que tenga que ver con vida natural, productos naturales, informal. No incluye ventas ni marketing. Diseño interior, arquitectura  tambien son de mi interes. \n7. AMBIGUO: Default para incertidumbre > 0.15.\nLa categoría DEBE ser escrita siempre en MAYÚSCULAS y sin espacios extra (ej: 'GASTOS', 'REMOTO'). No uses variaciones de mayúsculas/minúsculas. Los unicos valores posibles son \"EVENTO_DE_PAGO\" | \"IA_Y_EMPRENDIMIENTO\" | \"TRABAJO_REMOTO\" | \"RUIDO_COMERCIAL\" | \"AMBIGUO\" | \"INVERSIONES\" | \"SALUD/NATURAL\"\n\n## PROTOCOLO DE RESOLUCIÓN DE CONFLICTOS (Lógica de Ingeniería)\n- PRIORIDAD 1: Intento Semántico Actual. Si el mail actual es CLARAMENTE comercial pero el historial dice 'PAGO', ignora el historial. La intención actual manda.\n- PRIORIDAD 2: Memoria Histórica. Si hay ambigüedad en el contenido, usa la 'MEMORIA', si hay,  para desempatar según la preferencia previa del usuario.\n- PRIORIDAD 3: Categoría 'AMBIGUO'. Ante cualquier duda razonable, no ejecutes acciones destructivas (archivo).\n\n## SALIDA REQUERIDA (JSON)\n{\n  \"categoria\": \"STRING\", (\"EVENTO_DE_PAGO\" | \"IA_Y_EMPRENDIMIENTO\" | \"TRABAJO_REMOTO\" | \"RUIDO_COMERCIAL\" | \"AMBIGUO\" | \"INVERSIONES\" | \"SALUD/NATURAL\",)\n  \"confianza\": \"FLOAT\",\n  \"necesita_pdf\": \"BOOLEAN\",\n  \"razonamiento_tecnico\": \"STRING\",\n  \"meta\": {\n    \"is_historical_match\": \"BOOLEAN\",\n    \"detected_entities\": \"ARRAY\"\n  }\n}\n\nEl razonamiento tecnico tiene que se claro, y conciso, resumido en una oración.\n\n## FUENTES DE INFORMACIÓN\nRecibirás un input con datos del correo actual, asunto, cuerpo, adjunto\n\n## REGLA DE ADJUNTOS (Lógica de Facturación)\n- Si el mail indica que HAY adjunto PDF disponible pero no descargado, y el cuerpo/asunto \n  NO son suficientes para categorizar con certeza, setear \"necesita_pdf\": true.\n- Si el mail indica que HAY adjunto PDF disponible pero no descargado, y el cuerpo/asunto \n  son suficientes para categorizar con certeza, o sea la categoria pudiste definirla distinto de 'AMBIGUO', setear \"necesita_pdf\": false.\n- Si el mail indica que HAY adjunto PDF disponible y descargado, y el cuerpo/asunto \n  NO son suficientes para categorizar con certeza, utiliza el pdf y categoriza normalmente.\n- Si el cuerpo del mail es genérico (ej: \"Te envío adjunto\", \"Ver documento adjunto\") \n  y no hay información suficiente para clasificar -> necesita_pdf: true obligatoriamente.\n- Si el cuerpo ya es suficientemente claro para categorizar (ej: newsletter, oferta \n  comercial, recruiting), setear \"necesita_pdf\": false aunque haya adjunto.\n- IMPORTANTE: \"necesita_pdf\": true SOLO tiene sentido si el mail tiene adjunto y no pudiste categorizar con certeza\n  Si no hay adjunto, siempre false.\n\n\n\n## PROTOCOLO DE MEMORIA (Contextual Memory)\n1. El agente recibirá una lista de 'Precedentes Históricos' para este remitente.\n2. NO aplicar la categoría automáticamente. \n3. COMPARAR el cuerpo del correo actual con los 'Patrones' históricos.\n4. SI el intento semántico coincide con un precedente -> HEREDAR categoría.\n5. SI el intento es distinto (ej: el remitente suele enviar facturas pero esto es un saludo) -> IGNORAR memoria y CLASIFICAR desde cero.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        2112,
+        224
+      ],
+      "id": "64b93142-6669-4578-bac8-e617309f322c",
+      "name": "AI Clasificador de Mails"
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3568,
+        544
+      ],
+      "id": "5b0bab0d-b7d8-46ce-b0e1-40fa98098aa9",
+      "name": "Wait",
+      "webhookId": "beeee2e7-9326-4402-8ac4-7f7bdbbab96b"
+    },
+    {
+      "parameters": {
+        "batchSize": 5,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        432,
+        96
+      ],
+      "id": "0b4e8763-55dd-4275-ab8b-4bae78087e85",
+      "name": "Loop Over 5 messages",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "messageId": "={{ $json.id }}",
+        "simple": false,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        192
+      ],
+      "id": "f6ebedc2-e8cc-45f9-9a06-b1c5ff2ad19b",
+      "name": "Get message details",
+      "webhookId": "538d4bcb-cacb-4f7e-badf-56a6d680851e",
+      "alwaysOutputData": false,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2500,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "eTRbfapaMMpAgV3H",
+          "name": "Gmail account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2448,
+        80
+      ],
+      "id": "22c48e5d-9d7d-472f-8280-643866a6a497",
+      "name": "Merge AI response/mail info"
+    },
+    {
+      "parameters": {
+        "jsCode": "const mails = $input.all();\nconst whitelist = $('Get White List').all();\n\nreturn mails.map(item => {\n  const isWhitelisted = whitelist.some(w => \n    item.json.From?.toLowerCase().includes(w.json.Remitente?.toLowerCase())\n  );\n  return { json: { ...item.json, isWhitelisted } };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        992,
+        112
+      ],
+      "id": "4d98329a-0308-4285-a751-b8c4f1c53e96",
+      "name": "It is White List?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8941284c-2b7c-49ea-90d2-e6e70546f607",
+              "leftValue": "={{ $json.hasAttachment }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "ef32345f-4ed5-4430-9f48-638e00f428d6",
+              "leftValue": "={{ $json.output.necesita_pdf }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2672,
+        80
+      ],
+      "id": "ff90cb58-e11f-4113-ba40-6ff4c48abdce",
+      "name": "If needs pdf?"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "messageId": "={{ $json.id }}",
+        "simple": false,
+        "options": {
+          "downloadAttachments": true
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        -640
+      ],
+      "id": "fd5b5b3d-76ad-4f3e-a558-b07c571bb6d9",
+      "name": "Get message with attachment",
+      "webhookId": "538d4bcb-cacb-4f7e-badf-56a6d680851e",
+      "alwaysOutputData": false,
+      "retryOnFail": false,
+      "maxTries": 2,
+      "waitBetweenTries": 2500,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "eTRbfapaMMpAgV3H",
+          "name": "Gmail account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const item = $input.item;\nconst loopItem = $('Loop 3 pending').item;\n\n// ia_prompt y datos del mail SIEMPRE vienen del loop\nconst hasError = !!item.json.error;\nconst pdfText = hasError \n  ? \"No se pudo extraer texto del PDF.\" \n  : (item.json.text || \"No se pudo extraer texto del PDF.\");\n\nreturn {\n  json: {\n    ...loopItem.json,\n    hasAttachment: false,\n    ia_prompt: loopItem.json.ia_prompt.replace(\n      \"ADJUNTO (PDF): Sí, pero no descargado aún.\",\n      `CONTENIDO DEL ADJUNTO PDF:\\n${pdfText.substring(0, 2000)}`\n    )\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1888,
+        -640
+      ],
+      "id": "3af13ef1-29c1-4732-8d98-2608f599bede",
+      "name": "Rebuild Prompt IA",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM",
+          "mode": "list",
+          "cachedResultName": "ConfigOrganizationMails",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 629454139,
+          "mode": "list",
+          "cachedResultName": "Pendientes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit#gid=629454139"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "status",
+              "lookupValue": "pending"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        816,
+        -80
+      ],
+      "id": "12457a18-bcc5-440c-ab61-c3c3a167f1e5",
+      "name": "Get Pendins",
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "H7q9Yx4vgRbrVNwZ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9cb50142-030c-4d41-9039-73233024afd0",
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            },
+            {
+              "id": "4f7dc148-8d01-4868-a7cf-1c36b7c4ea0a",
+              "leftValue": "={{ $json.row_number }}",
+              "rightValue": "",
+              "operator": {
+                "type": "number",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        976,
+        -96
+      ],
+      "id": "aa7d3290-4cd6-4d35-83ac-7906c81b45e3",
+      "name": "Hay pendientes?"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.ia_prompt }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "## ROL\nOrquestador Semántico de Correos.\n\n## ONTOLOGÍA Y REGLAS DE NEGOCIO\n1. EVENTO_DE_PAGO: Solo registros financieros reales (facturas, recibos, avisos bancarios). \n   - REGLA NEGATIVA: Ignorar ofertas comerciales, \"paywalls\" de noticias o promociones de descuento.\n2. IA_Y_EMPRENDIMIENTO: Contenido técnico/estratégico. Excluir \"pitches\" de venta de servicios.\n3. TRABAJO_REMOTO: Específicamente recruiting y cultura de teletrabajo.\n4. RUIDO_COMERCIAL: Marketing, spam, newsletters de baja señal.\n5. INVERSIONES: Finanzas, economia y novedades sobre el mercado de bolsa.\n6. SALUD/NATURAL: Referido a salud del cuerpo humano, recetas e indicaciones medicas, todo lo que tenga que ver con vida natural, productos naturales, informal. No incluye ventas ni marketing. Diseño interior, arquitectura  tambien son de mi interes. \n7. AMBIGUO: Default para incertidumbre > 0.15.\nLa categoría DEBE ser escrita siempre en MAYÚSCULAS y sin espacios extra (ej: 'GASTOS', 'REMOTO'). No uses variaciones de mayúsculas/minúsculas. Los unicos valores posibles son \"EVENTO_DE_PAGO\" | \"IA_Y_EMPRENDIMIENTO\" | \"TRABAJO_REMOTO\" | \"RUIDO_COMERCIAL\" | \"AMBIGUO\" | \"INVERSIONES\" | \"SALUD/NATURAL\"\n\n## PROTOCOLO DE RESOLUCIÓN DE CONFLICTOS (Lógica de Ingeniería)\n- PRIORIDAD 1: Intento Semántico Actual. Si el mail actual es CLARAMENTE comercial pero el historial dice 'PAGO', ignora el historial. La intención actual manda.\n- PRIORIDAD 2: Memoria Histórica. Si hay ambigüedad en el contenido, usa la 'MEMORIA', si hay,  para desempatar según la preferencia previa del usuario.\n- PRIORIDAD 3: Categoría 'AMBIGUO'. Ante cualquier duda razonable, no ejecutes acciones destructivas (archivo).\n\n## SALIDA REQUERIDA (JSON)\n{\n  \"categoria\": \"STRING\", (\"EVENTO_DE_PAGO\" | \"IA_Y_EMPRENDIMIENTO\" | \"TRABAJO_REMOTO\" | \"RUIDO_COMERCIAL\" | \"AMBIGUO\" | \"INVERSIONES\" | \"SALUD/NATURAL\",)\n  \"confianza\": \"FLOAT\",\n  \"necesita_pdf\": \"BOOLEAN\",\n  \"razonamiento_tecnico\": \"STRING\",\n  \"meta\": {\n    \"is_historical_match\": \"BOOLEAN\",\n    \"detected_entities\": \"ARRAY\"\n  }\n}\n\nEl razonamiento tecnico tiene que se claro, y conciso, resumido en una oración.\n\n## FUENTES DE INFORMACIÓN\nRecibirás un input con datos del correo actual, asunto, cuerpo, adjunto\n\n## REGLA DE ADJUNTOS (Lógica de Facturación)\n- Si el mail indica que HAY adjunto PDF disponible pero no descargado, y el cuerpo/asunto \n  NO son suficientes para categorizar con certeza, setear \"necesita_pdf\": true.\n- Si el mail indica que HAY adjunto PDF disponible pero no descargado, y el cuerpo/asunto \n  son suficientes para categorizar con certeza, o sea la categoria pudiste definirla distinto de 'AMBIGUO', setear \"necesita_pdf\": false.\n- Si el mail indica que HAY adjunto PDF disponible y descargado, y el cuerpo/asunto \n  NO son suficientes para categorizar con certeza, utiliza el pdf y categoriza normalmente.\n- Si el cuerpo del mail es genérico (ej: \"Te envío adjunto\", \"Ver documento adjunto\") \n  y no hay información suficiente para clasificar -> necesita_pdf: true obligatoriamente.\n- Si el cuerpo ya es suficientemente claro para categorizar (ej: newsletter, oferta \n  comercial, recruiting), setear \"necesita_pdf\": false aunque haya adjunto.\n- IMPORTANTE: \"necesita_pdf\": true SOLO tiene sentido si el mail tiene adjunto y no pudiste categorizar con certeza\n  Si no hay adjunto, siempre false.\n\n\n\n## PROTOCOLO DE MEMORIA (Contextual Memory)\n1. El agente recibirá una lista de 'Precedentes Históricos' para este remitente.\n2. NO aplicar la categoría automáticamente. \n3. COMPARAR el cuerpo del correo actual con los 'Patrones' históricos.\n4. SI el intento semántico coincide con un precedente -> HEREDAR categoría.\n5. SI el intento es distinto (ej: el remitente suele enviar facturas pero esto es un saludo) -> IGNORAR memoria y CLASIFICAR desde cero."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        2112,
+        -768
+      ],
+      "id": "a83b6771-3345-47dc-af00-28eeea55a0eb",
+      "name": "AI Clasificador de Mails1"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "responsesApiEnabled": false,
+        "options": {
+          "responseFormat": "json_object"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        2128,
+        -544
+      ],
+      "id": "f710a93a-6915-43f1-875c-3ff879953157",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "vs9jqdQLN9s67mse",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"categoria\": \"STRING\",\n  \"confianza\": \"FLOAT\",\n  \"necesita_pdf\": \"BOOLEAN\",\n  \"razonamiento_tecnico\": \"STRING\",\n  \"meta\": {\n    \"is_historical_match\": \"BOOLEAN\",\n    \"detected_entities\": \"ARRAY\"\n  }\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2256,
+        -544
+      ],
+      "id": "7f22c094-1925-4c03-8980-1989c529568e",
+      "name": "Structured Output Parser1"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "hB05UHfCyonK4lzy",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/hB05UHfCyonK4lzy",
+          "cachedResultName": "Sub - Acciones Gmail"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.id }}",
+            "categoria": "={{ $json.output.categoria }}",
+            "output": "={{ $json.output }}",
+            "from": "={{ $json.from }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "categoria",
+              "displayName": "categoria",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "from",
+              "displayName": "from",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "output",
+              "displayName": "output",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        2688,
+        -640
+      ],
+      "id": "3c870bd8-dd34-44ef-bcca-ff91a94850c8",
+      "name": "Call 'Sub - Acciones Gmail'1",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2464,
+        -640
+      ],
+      "id": "355170b3-f735-4ea0-ad7b-d2158b7478b4",
+      "name": "Merge AI response/mail info1"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{ \"status\": \"ok\", \"info\": \"FIN: No hay pendientes para analizar\" } \n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        992,
+        -592
+      ],
+      "id": "09558be4-8e9d-42ff-9ca5-660ca541f440",
+      "name": "FIN"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM",
+          "mode": "list",
+          "cachedResultName": "ConfigOrganizationMails",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 629454139,
+          "mode": "list",
+          "cachedResultName": "Pendientes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit#gid=629454139"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "pending",
+            "id": "={{ $json.id }}",
+            "from": "={{ $json.from }}",
+            "subject": "={{ $json.subject }}",
+            "ia_prompt": "={{ $json.ia_prompt }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "from",
+              "displayName": "from",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "subject",
+              "displayName": "subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ia_prompt",
+              "displayName": "ia_prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "categoria",
+              "displayName": "categoria",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "confianza",
+              "displayName": "confianza",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "razonamiento",
+              "displayName": "razonamiento",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2864,
+        80
+      ],
+      "id": "e91cc64c-0326-4793-a2f3-91956b7557ec",
+      "name": "Add Pending",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "H7q9Yx4vgRbrVNwZ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "hB05UHfCyonK4lzy",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/hB05UHfCyonK4lzy",
+          "cachedResultName": "Sub - Acciones Gmail"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.id }}",
+            "categoria": "={{ $json.output.categoria }}",
+            "from": "={{ $json.from }}",
+            "output": "={{ $json.output }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "categoria",
+              "displayName": "categoria",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "output",
+              "displayName": "output",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            },
+            {
+              "id": "from",
+              "displayName": "from",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        2864,
+        288
+      ],
+      "id": "ac50480f-4bc7-48d8-a383-6ad8345f25fb",
+      "name": "Call 'Sub - Acciones Gmail & update Memory'",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "hB05UHfCyonK4lzy",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/hB05UHfCyonK4lzy",
+          "cachedResultName": "Sub - Acciones Gmail"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.id }}",
+            "categoria": "={{ $json.output.categoria }}",
+            "from": "={{ $json.from }}",
+            "output": "={{ $json.output }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "categoria",
+              "displayName": "categoria",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "output",
+              "displayName": "output",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            },
+            {
+              "id": "from",
+              "displayName": "from",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        2912,
+        512
+      ],
+      "id": "686478ba-7a57-43fb-8d4b-d9eb49cf7e27",
+      "name": "Call 'Sub - Acciones Gmail & update Memory'1",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "6babefa3-6ada-44a7-8f91-5abe158be78e",
+              "leftValue": "={{ $json.sizeEstimate }}",
+              "rightValue": 500000,
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "ignoreCase": false
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        768,
+        240
+      ],
+      "id": "846f116c-99fd-4960-92e9-a2dedd8baffb",
+      "name": "Size Filter"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM",
+          "mode": "list",
+          "cachedResultName": "ConfigOrganizationMails",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 629454139,
+          "mode": "list",
+          "cachedResultName": "Pendientes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit#gid=629454139"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "done",
+            "id": "={{ $('Merge AI response/mail info1').first().json.id }}",
+            "from": "={{ $('Merge AI response/mail info1').first().json.from }}",
+            "subject": "={{ $('Merge AI response/mail info1').first().json.subject }}",
+            "ia_prompt": "={{ $('Merge AI response/mail info1').first().json.ia_prompt }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "from",
+              "displayName": "from",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "subject",
+              "displayName": "subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ia_prompt",
+              "displayName": "ia_prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "categoria",
+              "displayName": "categoria",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "confianza",
+              "displayName": "confianza",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "razonamiento",
+              "displayName": "razonamiento",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3088,
+        -496
+      ],
+      "id": "7eb959ad-9975-4bf4-8d54-30f623b2ee8e",
+      "name": "Update Done",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "H7q9Yx4vgRbrVNwZ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst data = items[0]?.json;\n\nconst total_entrada   = data.total_entrada || 0;\nconst total_procesados = data.total_procesados || 0;\n\nconst hay_discrepancia = total_entrada !== total_procesados;\nconst discrepancia = total_entrada - total_procesados;\n\nconst detalle_categorias = Object.entries(data.detalle_categorias || {}).map(([categoria, total]) => ({ categoria, total }));\nconst detalle_fuentes = Object.entries(data.detalle_fuentes || {}).map(([fuente, total]) => ({ fuente, total }));\n\nreturn [{\n  json: {\n    validacion: {\n      hay_discrepancia,\n      total_entrada,\n      total_procesados,\n      discrepancia,\n      explicacion: hay_discrepancia \n        ? `Se perdieron ${Math.abs(discrepancia)} emails durante el procesamiento` \n        : 'Todos los emails fueron procesados correctamente'\n    },\n    detalle_categorias,\n    detalle_fuentes,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "1de23eb6-505e-48e3-a74b-18493248ab74",
+      "name": "Code: Validación y Reporte",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1632,
+        -912
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ $json.validacion.hay_discrepancia }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "72633b5e-077e-4a44-a0fb-d892a90c2a40",
+      "name": "IF: Hay Discrepancia?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1888,
+        -928
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "vero.zacarias@gmail.com",
+        "subject": "⚠️ Alerta: Discrepancia en Clasificación de Emails",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;\">\n\n  <div style=\"background-color: #c0392b; color: white; padding: 15px 20px; border-radius: 8px 8px 0 0;\">\n    <h2 style=\"margin: 0; font-size: 18px;\">⚠️ Discrepancia Detectada en Clasificación de Emails</h2>\n  </div>\n\n  <div style=\"background-color: white; padding: 20px; border: 1px solid #ddd; border-radius: 0 0 8px 8px;\">\n\n    <!-- RESUMEN -->\n    <div style=\"margin-bottom: 20px;\">\n      <h3 style=\"color: #2c3e50; border-bottom: 2px solid #e74c3c; padding-bottom: 5px;\">📊 Resumen de Validación</h3>\n      <table style=\"width: 100%; border-collapse: collapse;\">\n        <tr style=\"background-color: #f2f2f2;\">\n          <td style=\"padding: 8px 12px; font-weight: bold;\">Emails que entraron</td>\n          <td style=\"padding: 8px 12px;\">{{ $json.validacion.total_entrada }}</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 8px 12px; font-weight: bold;\">Emails procesados</td>\n          <td style=\"padding: 8px 12px;\">{{ $json.validacion.total_procesados }}</td>\n        </tr>\n        <tr style=\"background-color: #fdecea;\">\n          <td style=\"padding: 8px 12px; font-weight: bold; color: #c0392b;\">❌ Discrepancia</td>\n          <td style=\"padding: 8px 12px; color: #c0392b; font-weight: bold;\">{{ $json.validacion.discrepancia }} emails</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 8px 12px; font-weight: bold;\">Explicación</td>\n          <td style=\"padding: 8px 12px;\">{{ $json.validacion.explicacion }}</td>\n        </tr>\n      </table>\n    </div>\n\n    <!-- CATEGORÍAS -->\n    <div style=\"margin-bottom: 20px;\">\n      <h3 style=\"color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px;\">🏷️ Detalle por Categoría</h3>\n      <table style=\"width: 100%; border-collapse: collapse;\">\n{{ $json.detalle_categorias.map(item => `\n<tr>\n  <td style=\"padding: 8px 12px; border-bottom: 1px solid #eee;\">${item.categoria}</td>\n  <td style=\"padding: 8px 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;\">${item.total} emails</td>\n</tr>`).join('') }}\n      </table>\n    </div>\n\n    <!-- FUENTES -->\n    <div style=\"margin-bottom: 20px;\">\n      <h3 style=\"color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px;\">📧 Detalle por Fuente</h3>\n      <table style=\"width: 100%; border-collapse: collapse;\">\n{{ $json.detalle_fuentes.map(item => `\n<tr>\n  <td style=\"padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 13px;\">${item.fuente}</td>\n  <td style=\"padding: 8px 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;\">${item.total} mails</td>\n</tr>`).join('') }}\n      </table>\n    </div>\n\n    <!-- POSIBLES CAUSAS -->\n    <div style=\"background-color: #fef9e7; border-left: 4px solid #f39c12; padding: 12px 16px; margin-bottom: 20px; border-radius: 4px;\">\n      <h3 style=\"color: #e67e22; margin-top: 0;\">⚠️ Posibles Causas de Pérdida</h3>\n      <ul style=\"margin: 0; padding-left: 20px; color: #555;\">\n        <li>Errores en Size Filter</li>\n        <li>Errores en Get message details</li>\n        <li>Errores en clasificación AI</li>\n        <li>Errores en extracción de PDF</li>\n        <li>Timeouts o rate limits de Gmail</li>\n      </ul>\n    </div>\n\n    <!-- FOOTER -->\n    <div style=\"text-align: right; color: #999; font-size: 12px; border-top: 1px solid #eee; padding-top: 10px;\">\n      🕐 {{ $json.timestamp }}\n    </div>\n\n  </div>\n</div>",
+        "options": {}
+      },
+      "id": "9395d1bd-d143-4919-a1ef-a700b78c6bf7",
+      "name": "Gmail: Alerta de Discrepancia",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2224,
+        -1104
+      ],
+      "webhookId": "df002889-f18a-40ad-8ada-5fc23581a78a",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "eTRbfapaMMpAgV3H",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst items = $input.all();\nconst total_entrada_items = items[0].json.total_entrada || [];\n\nstaticData.total_entrada = total_entrada_items.length;\nstaticData.contador = 0;\nstaticData.detalle_categorias = {};\nstaticData.detalle_fuentes = {};\n\nreturn total_entrada_items.map(i => ({ json: i }));"
+      },
+      "id": "e0fde88f-6f52-4cb1-bce7-d6f8f060f2c2",
+      "name": "Code: Guardar Total Entrada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM",
+          "mode": "list",
+          "cachedResultName": "ConfigOrganizationMails",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 629454139,
+          "mode": "list",
+          "cachedResultName": "Pendientes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit#gid=629454139"
+        },
+        "keepFirstRow": true
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -304,
+        -368
+      ],
+      "id": "822eec1d-7eb1-4e4c-8272-1af3e9a894f9",
+      "name": "Clear Pendientes",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "H7q9Yx4vgRbrVNwZ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 3,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1184,
+        -480
+      ],
+      "id": "5fd316dc-46ef-4e5e-9761-d0ae5774ab8c",
+      "name": "Loop 3 pending",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\n\nconst resultado = {\n  total_entrada: staticData.total_entrada || 0,\n  total_procesados: staticData.contador || 0,\n  detalle_categorias: staticData.detalle_categorias || {},\n  detalle_fuentes: staticData.detalle_fuentes || {}\n};\n\nreturn [{ json: resultado }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1376,
+        -848
+      ],
+      "id": "2a7dc6b8-d0c2-4b38-aef0-f233ee36cb00",
+      "name": "Emitir Metricas"
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\n\n// Contador\nstaticData.contador = (staticData.contador || 0) + $input.all().length;\n\n// Detalle acumulado\nif (!staticData.detalle_categorias) staticData.detalle_categorias = {};\nif (!staticData.detalle_fuentes) staticData.detalle_fuentes = {};\n\n$input.all().forEach(item => {\n  const categoria = item.json.output?.categoria || 'SIN_CATEGORIA';\n  const fuente = item.json.from || 'desconocido';\n\n  staticData.detalle_categorias[categoria] = (staticData.detalle_categorias[categoria] || 0) + 1;\n  staticData.detalle_fuentes[fuente] = (staticData.detalle_fuentes[fuente] || 0) + 1;\n});\n\nreturn $input.all().map(i => ({ json: i.json }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3088,
+        272
+      ],
+      "id": "8a083db6-9ac9-4066-9d3c-87a67c543b67",
+      "name": "Contar Mail Procesado"
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst items = $('Merge AI response/mail info1');\n// Contador\nstaticData.contador = (staticData.contador || 0) + items.all().length;\n\n// Detalle acumulado\nif (!staticData.detalle_categorias) staticData.detalle_categorias = {};\nif (!staticData.detalle_fuentes) staticData.detalle_fuentes = {};\n\nitems.all().forEach(item => {\n  const categoria = item.json.output?.categoria || 'SIN_CATEGORIA';\n  const fuente = item.json.from || 'desconocido';\n\n  staticData.detalle_categorias[categoria] = (staticData.detalle_categorias[categoria] || 0) + 1;\n  staticData.detalle_fuentes[fuente] = (staticData.detalle_fuentes[fuente] || 0) + 1;\n});\n\nreturn items.all().map(i => ({ json: i.json }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        -624
+      ],
+      "id": "1b6a6f32-df32-4a1f-bda9-846326dead0a",
+      "name": "Contar Mail Procesado1"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => ({\n  json: {\n    id: item.json.id,\n    from: item.json.From,\n    subject: item.json.Subject,\n    categoria: \"AMBIGUO\",\n    output: {\n      categoria: \"AMBIGUO\",\n      confianza: 0.3,\n      necesita_pdf: false,\n      razonamiento_tecnico: \"Mail demasiado pesado para procesar automaticamente.\"\n    }\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        528
+      ],
+      "id": "a77ba246-6d6b-4b7f-b248-62127acdb2a3",
+      "name": "SET MAIL TOO BIG"
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3408,
+        160
+      ],
+      "id": "41562a30-58e7-4600-8434-1db3de327861",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst items = $('It is WhiteList?').all();\n// Contador\nstaticData.contador = (staticData.contador || 0) + items.length;\n\n// Detalle acumulado\nif (!staticData.detalle_categorias) staticData.detalle_categorias = {};\nif (!staticData.detalle_fuentes) staticData.detalle_fuentes = {};\n\nitems.forEach(item => {\n  const categoria = 'FAMILIA/IMPORTANTE';\n  const fuente = item.json.From || 'desconocido';\n\n  staticData.detalle_categorias[categoria] = (staticData.detalle_categorias[categoria] || 0) + 1;\n  staticData.detalle_fuentes[fuente] = (staticData.detalle_fuentes[fuente] || 0) + 1;\n});\n\nreturn items.map(i => ({ json: i.json }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3136,
+        -128
+      ],
+      "id": "3cb6f970-108c-471f-b891-b79e3f474757",
+      "name": "Contar Mail Procesado3"
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\n\n// Contador\nstaticData.contador = (staticData.contador || 0) + $input.all().length;\n\n// Detalle acumulado\nif (!staticData.detalle_categorias) staticData.detalle_categorias = {};\nif (!staticData.detalle_fuentes) staticData.detalle_fuentes = {};\n\n$input.all().forEach(item => {\n  const categoria = item.json.output?.categoria || 'SIN_CATEGORIA';\n  const fuente = item.json.from || 'desconocido';\n\n  staticData.detalle_categorias[categoria] = (staticData.detalle_categorias[categoria] || 0) + 1;\n  staticData.detalle_fuentes[fuente] = (staticData.detalle_fuentes[fuente] || 0) + 1;\n});\n\nreturn $input.all().map(i => ({ json: i.json }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3088,
+        496
+      ],
+      "id": "d7a6fc40-14af-4354-a575-30c1b5ce048f",
+      "name": "Contar Mail Procesado4"
+    },
+    {
+      "parameters": {
+        "sendTo": "vero.zacarias@gmail.com",
+        "subject": "✅ Clasificación de Emails Exito",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;\">\n\n  <div style=\"background-color: #27ae60; color: white; padding: 15px 20px; border-radius: 8px 8px 0 0;\">\n    <h2 style=\"margin: 0; font-size: 18px;\">✅ Clasificación de Emails Completada Exitosamente</h2>\n  </div>\n\n  <div style=\"background-color: white; padding: 20px; border: 1px solid #ddd; border-radius: 0 0 8px 8px;\">\n\n    <!-- RESUMEN -->\n    <div style=\"margin-bottom: 20px;\">\n      <h3 style=\"color: #2c3e50; border-bottom: 2px solid #27ae60; padding-bottom: 5px;\">📊 Resumen de Validación</h3>\n      <table style=\"width: 100%; border-collapse: collapse;\">\n        <tr style=\"background-color: #f2f2f2;\">\n          <td style=\"padding: 8px 12px; font-weight: bold;\">Emails que entraron</td>\n          <td style=\"padding: 8px 12px;\">{{ $json.validacion.total_entrada }}</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 8px 12px; font-weight: bold;\">Emails procesados</td>\n          <td style=\"padding: 8px 12px;\">{{ $json.validacion.total_procesados }}</td>\n        </tr>\n        <tr style=\"background-color: #eafaf1;\">\n          <td style=\"padding: 8px 12px; font-weight: bold; color: #27ae60;\">✅ Estado</td>\n          <td style=\"padding: 8px 12px; color: #27ae60; font-weight: bold;\">{{ $json.validacion.explicacion }}</td>\n        </tr>\n      </table>\n    </div>\n\n    <!-- CATEGORÍAS -->\n    <div style=\"margin-bottom: 20px;\">\n      <h3 style=\"color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px;\">🏷️ Detalle por Categoría</h3>\n      <table style=\"width: 100%; border-collapse: collapse;\">\n        {{ $json.detalle_categorias.map(item => `\n        <tr>\n          <td style=\"padding: 8px 12px; border-bottom: 1px solid #eee;\">${item.categoria}</td>\n          <td style=\"padding: 8px 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;\">${item.total} emails</td>\n        </tr>`).join('') }}\n      </table>\n    </div>\n\n    <!-- FUENTES -->\n    <div style=\"margin-bottom: 20px;\">\n      <h3 style=\"color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px;\">📧 Detalle por Fuente</h3>\n      <table style=\"width: 100%; border-collapse: collapse;\">\n        {{ $json.detalle_fuentes.map(item => `\n        <tr>\n          <td style=\"padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 13px;\">${item.fuente}</td>\n          <td style=\"padding: 8px 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;\">${item.total} mails</td>\n        </tr>`).join('') }}\n      </table>\n    </div>\n\n    <!-- FOOTER -->\n    <div style=\"text-align: right; color: #999; font-size: 12px; border-top: 1px solid #eee; padding-top: 10px;\">\n      🕐 {{ $json.timestamp }}\n    </div>\n\n  </div>\n</div>",
+        "options": {}
+      },
+      "id": "39799e73-cb74-44c9-909f-a6a737a5da2b",
+      "name": "Gmail: Exito",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2208,
+        -944
+      ],
+      "webhookId": "df002889-f18a-40ad-8ada-5fc23581a78a",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "eTRbfapaMMpAgV3H",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "filters": {
+          "q": "-label:gastos -label:remoto -label:estratégico-ia -label:ia-revisión -label:ia-spam -label:familia/importante -label:salud/natural -label:inversiones -in:sent"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -112,
+        -160
+      ],
+      "id": "234caf59-e2fb-4f7d-b230-199631e5572f",
+      "name": "Get 50 last message",
+      "webhookId": "b198557a-8c13-40f6-ba0f-094de3a0e855",
+      "executeOnce": true,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "eTRbfapaMMpAgV3H",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "total_entrada",
+        "options": {}
+      },
+      "id": "7deb61a9-4877-4ad0-b68a-67291efc1348",
+      "name": "Total Getter Mails",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        80,
+        -160
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "7 am clock": {
+      "main": [
+        [
+          {
+            "node": "Clear Pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean Html body": {
+      "main": [
+        [
+          {
+            "node": "Get IA request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Rebuild Prompt IA",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Get White List": {
+      "main": [
+        [
+          {
+            "node": "Get 50 last message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "It is WhiteList?": {
+      "main": [
+        [
+          {
+            "node": "Mark as FAMILY/IMPORTANTE",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get message details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Clasificador de Mails",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get IA request": {
+      "main": [
+        [
+          {
+            "node": "AI Clasificador de Mails",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge AI response/mail info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get History Memorial": {
+      "main": [
+        []
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Clasificador de Mails",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Clasificador de Mails": {
+      "main": [
+        [
+          {
+            "node": "Merge AI response/mail info",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over 5 messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark as FAMILY/IMPORTANTE": {
+      "main": [
+        [
+          {
+            "node": "Contar Mail Procesado3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over 5 messages": {
+      "main": [
+        [
+          {
+            "node": "Get Pendins",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get History Memorial",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Size Filter",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Get message details": {
+      "main": [
+        [
+          {
+            "node": "Clean Html body",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Merge AI response/mail info": {
+      "main": [
+        [
+          {
+            "node": "If needs pdf?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "It is White List?": {
+      "main": [
+        [
+          {
+            "node": "It is WhiteList?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If needs pdf?": {
+      "main": [
+        [
+          {
+            "node": "Add Pending",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call 'Sub - Acciones Gmail & update Memory'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get message with attachment": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Rebuild Prompt IA": {
+      "main": [
+        [
+          {
+            "node": "AI Clasificador de Mails1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge AI response/mail info1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Get Pendins": {
+      "main": [
+        [
+          {
+            "node": "Hay pendientes?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hay pendientes?": {
+      "main": [
+        [
+          {
+            "node": "Loop 3 pending",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "FIN",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Clasificador de Mails1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Clasificador de Mails1",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Clasificador de Mails1": {
+      "main": [
+        [
+          {
+            "node": "Merge AI response/mail info1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge AI response/mail info1": {
+      "main": [
+        [
+          {
+            "node": "Call 'Sub - Acciones Gmail'1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Pending": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Call 'Sub - Acciones Gmail & update Memory'": {
+      "main": [
+        [
+          {
+            "node": "Contar Mail Procesado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'Sub - Acciones Gmail'1": {
+      "main": [
+        [
+          {
+            "node": "Contar Mail Procesado1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'Sub - Acciones Gmail & update Memory'1": {
+      "main": [
+        [
+          {
+            "node": "Contar Mail Procesado4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Size Filter": {
+      "main": [
+        [
+          {
+            "node": "It is White List?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SET MAIL TOO BIG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Done": {
+      "main": [
+        [
+          {
+            "node": "Loop 3 pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Validación y Reporte": {
+      "main": [
+        [
+          {
+            "node": "IF: Hay Discrepancia?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Hay Discrepancia?": {
+      "main": [
+        [
+          {
+            "node": "Gmail: Alerta de Discrepancia",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gmail: Exito",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Guardar Total Entrada": {
+      "main": [
+        [
+          {
+            "node": "Loop Over 5 messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail: Alerta de Discrepancia": {
+      "main": [
+        []
+      ]
+    },
+    "Clear Pendientes": {
+      "main": [
+        [
+          {
+            "node": "Get White List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop 3 pending": {
+      "main": [
+        [
+          {
+            "node": "Emitir Metricas",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get message with attachment",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "FIN": {
+      "main": [
+        [
+          {
+            "node": "Emitir Metricas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Emitir Metricas": {
+      "main": [
+        [
+          {
+            "node": "Code: Validación y Reporte",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contar Mail Procesado": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Contar Mail Procesado1": {
+      "main": [
+        [
+          {
+            "node": "Update Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SET MAIL TOO BIG": {
+      "main": [
+        [
+          {
+            "node": "Call 'Sub - Acciones Gmail & update Memory'1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contar Mail Procesado3": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contar Mail Procesado4": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Get 50 last message": {
+      "main": [
+        [
+          {
+            "node": "Total Getter Mails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Total Getter Mails": {
+      "main": [
+        [
+          {
+            "node": "Code: Guardar Total Entrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "saveExecutionProgress": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "07295531-6506-4ed1-9d5b-25ae5e1ee79f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "90d0cd775b8b317d93028fa9dac1a8444d7abab6b6d67d7d742eaaaba2878ec3"
+  },
+  "id": "mwyiyhcwgTChueSc",
+  "tags": []
+}

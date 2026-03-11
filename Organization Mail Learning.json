@@ -1,0 +1,512 @@
+{
+  "name": "Organization Mail Learning",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "121ec822-1a8b-4177-afa4-f7d00689b527",
+      "name": "Todos los dias a medianoche"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM",
+          "mode": "list",
+          "cachedResultName": "ConfigOrganizationMails",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1751572867,
+          "mode": "list",
+          "cachedResultName": "MemoriaHistorica",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit#gid=1751572867"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        224,
+        96
+      ],
+      "id": "4560522a-27ca-40ab-81ae-c2f183acef35",
+      "name": "Get Historic Memory",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "H7q9Yx4vgRbrVNwZ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "messageId": "={{ $json.messageID }}"
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        432,
+        -16
+      ],
+      "id": "3ab3e691-6a7d-4227-9a96-8fabfb074f90",
+      "name": "Get label message",
+      "webhookId": "d1d65273-517f-4758-8d57-8337da139bb1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "eTRbfapaMMpAgV3H",
+          "name": "Gmail account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "advanced": true,
+        "mergeByFields": {
+          "values": [
+            {
+              "field1": "id",
+              "field2": "messageID"
+            }
+          ]
+        },
+        "joinMode": "enrichInput2",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        672,
+        112
+      ],
+      "id": "9a5f019a-25b9-4b7e-b403-7adbe4c0f2f9",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "const CATEGORY_TO_LABEL = {\n  'RUIDO_COMERCIAL':     'Label_8608903593625801920',\n  'EVENTO_DE_PAGO':      'Label_5520207168492791595',\n  'IA_Y_EMPRENDIMIENTO': 'Label_1116150865929736285',\n  'TRABAJO_REMOTO':      'Label_6767717741231986689',\n  'AMBIGUO':             'Label_6138867044884961130',\n  'INVERSIONES':         'Label_5875726024538814156',\n  'SALUD/NATURAL':       'Label_6929204943850250196',\n\n};\n\nconst LABEL_TO_CATEGORY = Object.fromEntries(\n  Object.entries(CATEGORY_TO_LABEL).map(([cat, label]) => [label, cat])\n);\n\nconst ALL_MANAGED_IA_LABELS = Object.values(CATEGORY_TO_LABEL);\n\nreturn $input.all()\n  .filter(item => {\n    const currentLabels = (item.json.labels || []).map(l => l.id);\n    return currentLabels.some(id => ALL_MANAGED_IA_LABELS.includes(id));\n  })\n  .map(item => {\n  \n  const currentLabels = (item.json.labels || []).map(l => l.id);\n\n  const oldLabelId = CATEGORY_TO_LABEL[item.json.categoria?.toUpperCase()];\n  const newLabelId = currentLabels.find(id => ALL_MANAGED_IA_LABELS.includes(id));\n  const newCategoria = LABEL_TO_CATEGORY[newLabelId];\n    \n  return {\n    json: {\n      row_number: item.json.row_number,\n      messageID: item.json.messageID,\n      newCategoria,\n      oldLabelId,\n      newLabelId,\n      needsUpdate: newLabelId !== oldLabelId\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        112
+      ],
+      "id": "624d219a-98a3-4878-ac2b-6902b90e2282",
+      "name": "It have automatic label?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d445fc8a-92d8-46ef-be31-6f638f3e9aca",
+              "leftValue": "={{ $json.needsUpdate }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        1088,
+        112
+      ],
+      "id": "1a0ff873-0a47-4080-a1b8-3e335a692fa2",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM",
+          "mode": "list",
+          "cachedResultName": "ConfigOrganizationMails",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1751572867,
+          "mode": "list",
+          "cachedResultName": "MemoriaHistorica",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit#gid=1751572867"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "messageID": "={{ $json.messageID }}",
+            "is_manual": "true",
+            "updated": "={{ $now}}",
+            "categoria": "={{ $json.newCategoria }}"
+          },
+          "matchingColumns": [
+            "messageID"
+          ],
+          "schema": [
+            {
+              "id": "messageID",
+              "displayName": "messageID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "remitente",
+              "displayName": "remitente",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "categoria",
+              "displayName": "categoria",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "patron",
+              "displayName": "patron",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "is_manual",
+              "displayName": "is_manual",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated",
+              "displayName": "updated",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1296,
+        112
+      ],
+      "id": "0e88bbef-99a6-4871-80ad-e02e455a06f9",
+      "name": "Update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "H7q9Yx4vgRbrVNwZ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM",
+          "mode": "list",
+          "cachedResultName": "ConfigOrganizationMails",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1751572867,
+          "mode": "list",
+          "cachedResultName": "MemoriaHistorica",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit#gid=1751572867"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        400,
+        400
+      ],
+      "id": "c9aa52dc-4a6f-4dbb-be29-387a16fadd25",
+      "name": "Get row(s) in sheet",
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "H7q9Yx4vgRbrVNwZ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Todos los items vienen en el array\nconst rows = $input.all().map(item => item.json);\n\n// Agrupar por combinación mail + categoria\nconst grupos = {};\n\nfor (const row of rows) {\n  const clave = `${row.remitente}|||${row.categoria}`;\n  \n  if (!grupos[clave]) {\n    grupos[clave] = { \n      mail: row.remitente, \n      categoria: row.categoria, \n      cantidad: 0,\n      registros: []\n    };\n  }\n  \n  grupos[clave].cantidad++;\n  grupos[clave].registros.push(row);\n}\n\n// Filtrar combinaciones con más de 4 registros\n// y quedarse solo con el registro más viejo\nconst resultado = Object.values(grupos)\n  .filter(g => g.cantidad > 4)\n  .map(g => {\n    const masViejo = g.registros.sort(\n      (a, b) => +new Date(a.updated) - +new Date(b.updated)\n    )[0];\n\n    return {\n      json: {\n        mail: g.remitente,\n        categoria: g.categoria,\n        cantidad: g.cantidad,\n        registro_mas_viejo: masViejo\n      }\n    };\n  });\n\nreturn resultado;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        400
+      ],
+      "id": "f21ee69b-386f-4877-b7bf-82fa566ed866",
+      "name": "Get mas viejo de +4 mail/Categoria"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e0e3d38a-f8fe-4a7b-9f99-b16f08c6dabe",
+              "leftValue": "={{ $json.registro_mas_viejo }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        816,
+        400
+      ],
+      "id": "f9fc8cf3-9842-4949-97b7-058c3278655c",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "documentId": {
+          "__rl": true,
+          "value": "1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM",
+          "mode": "list",
+          "cachedResultName": "ConfigOrganizationMails",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1751572867,
+          "mode": "list",
+          "cachedResultName": "MemoriaHistorica",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit#gid=1751572867"
+        },
+        "startIndex": "={{ $json.registro_mas_viejo.row_number }}"
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1120,
+        384
+      ],
+      "id": "b0571d6d-49f9-4e98-a78b-8317246cef06",
+      "name": "Delete rows",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "H7q9Yx4vgRbrVNwZ",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Todos los dias a medianoche": {
+      "main": [
+        [
+          {
+            "node": "Get Historic Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Historic Memory": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Get label message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get label message": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "It have automatic label?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "It have automatic label?": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Get mas viejo de +4 mail/Categoria",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get mas viejo de +4 mail/Categoria": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Delete rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "d5d6444f-e4e4-4be7-ab9c-8368e1d74695",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "90d0cd775b8b317d93028fa9dac1a8444d7abab6b6d67d7d742eaaaba2878ec3"
+  },
+  "id": "bRd4hoisA5cTByEN",
+  "tags": []
+}
