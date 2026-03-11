@@ -1,21 +1,55 @@
 # Gmail Semantic Organizer — n8n + OpenAI
 
-Automated Gmail inbox classification system that runs daily, classifies incoming emails using GPT-4o-mini, and applies Gmail labels automatically — with contextual memory, PDF handling, and processing validation.
+A three-workflow system that classifies Gmail inbox messages daily using GPT-4o-mini, applies labels automatically, and continuously improves classification accuracy through per-sender contextual memory.
 
-## What it does
+Built and deployed as a personal productivity tool. Running in production.
 
-Every morning at 7am, this workflow:
+## System overview
 
-1. Fetches the last 50 unclassified Gmail messages
-2. Applies a **sender whitelist** (Google Sheets) — whitelisted senders are immediately tagged as `FAMILY/IMPORTANT`
-3. **Filters oversized emails** (>500KB) and marks them as `AMBIGUOUS` without processing
-4. **Cleans HTML** from email bodies and strips encoded headers
-5. **Loads historical memory** (per sender) from Google Sheets to improve classification consistency
-6. Sends each email to **GPT-4o-mini** for semantic classification
-7. If the model needs a PDF to classify confidently, **downloads and extracts the attachment** and re-runs classification
-8. Queues emails that require PDF processing for a second pass
-9. **Applies Gmail labels** via a sub-workflow
-10. Sends a **summary report** by email — or an **alert** if processing discrepancies are detected
+```
+07:00  Email Organization        → Fetches, classifies, and labels emails
+       Sub - Acciones Gmail      → Called by main: applies labels + updates memory  
+00:00  Organization Mail Learning → Consolidates and prunes historical memory
+```
+
+The system gets more accurate over time: every manual label correction feeds back into the memory, and the learning workflow keeps that memory clean and relevant.
+
+## Workflows
+
+### 1. Email Organization (daily at 7am)
+
+Main pipeline. Processes the last 50 unclassified emails:
+
+1. Clears the pending queue from the previous run
+2. Fetches the sender whitelist from Google Sheets
+3. Fetches 50 unclassified Gmail messages
+4. **Whitelist check** — whitelisted senders skip AI and get labeled `FAMILY/IMPORTANT` immediately
+5. **Size filter** — emails over 500KB are marked `AMBIGUOUS` without AI processing
+6. **HTML cleaning** — strips tags, encoded entities, and decodes Base64/QP headers
+7. **Memory injection** — loads per-sender classification history and builds a contextual prompt
+8. **GPT-4o-mini classification** — structured JSON output with category, confidence, and reasoning
+9. **PDF pipeline** — if the model signals `necesita_pdf: true`, downloads the attachment, extracts text, rebuilds the prompt, and re-classifies
+10. Calls `Sub - Acciones Gmail` to apply labels and update memory
+11. Sends a **daily summary email** with per-category and per-sender breakdown
+12. Sends an **alert email** if any emails were lost during processing
+
+### 2. Sub - Acciones Gmail (called by main workflow)
+
+Handles the action layer:
+
+- Routes each email to the correct Gmail label based on category
+- Checks whether a memory entry for this sender/category already exists
+- Appends a new memory record or updates the existing one
+- Flags entries that were manually corrected (`is_manual: true`) so they get priority in future classifications
+
+### 3. Organization Mail Learning (daily at midnight)
+
+Keeps the memory lean and accurate:
+
+- Loads the full historical memory from Google Sheets
+- Checks whether each entry still matches the current Gmail label (detects manual corrections)
+- For each sender/category combination, keeps only the most recent relevant entries
+- Deletes stale or redundant records to prevent memory bloat
 
 ## Classification categories
 
@@ -27,75 +61,73 @@ Every morning at 7am, this workflow:
 | `INVERSIONES` | Finance, markets, investment news |
 | `SALUD/NATURAL` | Health, natural living, interior design |
 | `RUIDO_COMERCIAL` | Marketing, spam, low-signal newsletters |
-| `AMBIGUO` | Default when confidence < threshold |
+| `AMBIGUO` | Default when model confidence is below threshold |
 
 ## Architecture
 
 ```
 Gmail (50 msgs)
     │
-    ├─ Whitelist check (Google Sheets) → Label: FAMILY/IMPORTANT
+    ├─ Whitelist → FAMILY/IMPORTANT (no AI)
+    ├─ Size filter (>500KB) → AMBIGUOUS (no AI)
     │
-    ├─ Size filter (>500KB) → Mark AMBIGUOUS, skip AI
-    │
-    └─ AI classification pipeline
+    └─ AI Classification Pipeline
            │
-           ├─ Load sender history (Google Sheets: MemoriaHistorica)
-           ├─ Clean HTML body + decode headers
-           ├─ Build contextual prompt with history
-           ├─ GPT-4o-mini → Structured JSON output
-           │     { categoria, confianza, necesita_pdf, razonamiento_tecnico }
+           ├─ Load sender memory (Google Sheets)
+           ├─ Clean HTML + decode headers
+           ├─ Build prompt with historical context
+           ├─ GPT-4o-mini → { categoria, confianza, necesita_pdf, razonamiento_tecnico }
            │
-           ├─ If needs PDF → Download attachment → Extract text → Re-classify
+           ├─ [if necesita_pdf] → Download PDF → Extract text → Re-classify
            │
-           ├─ Apply Gmail labels (sub-workflow)
-           └─ Update historical memory
+           └─ Sub-workflow: Apply Gmail label + Update memory
 
-Daily report → Success email or Discrepancy alert
+Midnight: Learning workflow prunes and consolidates memory
 ```
 
 ## Key design decisions
 
-**Contextual memory per sender:** Classification history is stored in Google Sheets and injected into each prompt. If a sender was manually corrected before, that correction takes priority over automatic classification.
+**Contextual memory per sender:** Classification history is stored in Google Sheets per sender. Manually corrected labels are flagged and given priority over automatic classification in future runs.
 
-**PDF-aware pipeline:** The model signals `necesita_pdf: true` when the email body is insufficient to classify with confidence. The workflow then fetches the full attachment, extracts text, and re-runs classification — avoiding misclassification of invoices or contracts.
+**PDF-aware classification:** Rather than always downloading attachments (slow, expensive), the model first attempts classification from subject and body. Only if it signals insufficient confidence does the workflow download and extract the PDF.
 
-**Pending queue:** Emails requiring PDF processing are stored in a `Pendientes` sheet and processed in batches of 3 in a second loop, preventing Gmail API rate limit issues.
+**Pending queue with second pass:** Emails queued for PDF processing are stored in a `Pendientes` sheet and retried in the next loop iteration, preventing Gmail API rate limit issues.
 
-**Processing validation:** The workflow tracks total emails entering vs. total processed. Any discrepancy triggers an HTML-formatted alert email with per-category and per-sender breakdown.
+**Memory consolidation:** A nightly job removes stale entries and keeps the memory focused, avoiding prompt bloat and classification drift over time.
 
-**Cost efficiency:** Using `gpt-4o-mini` with body truncation at 2,500 characters. Estimated cost: ~$0.80 USD per 1,000 emails.
+**Processing validation:** The workflow tracks emails entering vs. emails processed. Any discrepancy triggers an HTML-formatted alert email.
+
+**Cost efficiency:** `gpt-4o-mini` with body truncation at 2,500 characters. Estimated cost: ~$0.80 USD per 1,000 emails.
 
 ## Stack
 
 - **n8n** — workflow orchestration
 - **OpenAI API** — GPT-4o-mini for semantic classification
-- **Gmail API** — message fetching and label management
+- **Gmail API** — message fetching, label management
 - **Google Sheets** — whitelist, historical memory, pending queue
 
-## Configuration (Google Sheets)
+## Google Sheets structure
 
-The workflow reads from a Google Sheets workbook with 3 sheets:
+Three sheets in one workbook:
 
 | Sheet | Purpose |
 |-------|---------|
-| `WhiteList` | Sender email addresses that bypass AI classification |
+| `WhiteList` | Sender addresses that bypass AI classification |
 | `MemoriaHistorica` | Per-sender classification history with manual correction flag |
-| `Pendientes` | Queue for emails pending PDF processing |
+| `Pendientes` | Queue for emails requiring PDF reprocessing |
 
-## How to use
+## Setup
 
-1. Import `Email_Organization.json` into your n8n instance
-2. Connect your Gmail and Google Sheets credentials
+1. Import the three workflow files into your n8n instance:
+   - `Email_Organization.json`
+   - `Sub_-_Acciones_Gmail.json`
+   - `Organization_Mail_Learning.json`
+2. Connect Gmail and Google Sheets credentials in n8n
 3. Create the Google Sheets workbook with the 3 sheets above
-4. Update the `documentId` references in the Google Sheets nodes to your workbook ID
-5. Update Gmail label IDs to match your Gmail account
-6. Activate the workflow — it will run daily at 7am
+4. Update `documentId` references in all Google Sheets nodes to your workbook ID
+5. Update Gmail label IDs to match your account labels
+6. Activate all three workflows
 
 ## Output
 
-Each processed email gets one Gmail label applied automatically. A daily summary email is sent with:
-- Total emails processed vs. received
-- Breakdown by category
-- Breakdown by sender
-- Alert if any emails were lost during processing
+Each processed email gets one Gmail label applied automatically. A daily summary email reports total emails processed, breakdown by category, breakdown by sender, and alerts on any processing discrepancy.
