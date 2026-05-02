@@ -8,7 +8,7 @@
 
 I run a Gmail classification workflow on **n8n Cloud (Starter plan, ~320 MiB RAM)** that processes 25 emails twice a day, labels them using an AI agent, logs decisions to Google Sheets, and sends a daily summary report. The workflow handled most runs fine — until emails with PDF attachments were involved. With 2–3 PDFs in a batch, the workflow would crash mid-execution with near-instant errors ("Error in 42ms"), no consistent node, and no useful stack trace.
 
-The investigation that followed went deep into n8n Cloud's memory model, the behavior of `SplitInBatches` with cross-node references, binary data handling, and the `Wait` node's serialization threshold. The full technical research is documented in [`n8n-cloud-technical-reference.md`](./n8n-cloud-technical-reference.md) (in Spanish — the working language of this project).
+The investigation that followed went deep into n8n Cloud's memory model, the behavior of `SplitInBatches` with cross-node references, binary data handling, and the `Wait` node's serialization threshold. The full technical research is documented in [`n8n-cloud-technical-reference.md`](./n8n-cloud-technical-reference.md)
 
 ---
 
@@ -152,9 +152,6 @@ Receives a batch of mails, each pre-loaded with `history_data`. The `Get IA requ
 ├── n8n-cloud-technical-reference.md   ← full technical research (ES): memory limits,
 │                                         SplitInBatches behavior, Wait node threshold,
 │                                         binary data handling, Google Sheets in loops
-├── Email_Organization_v2.json         ← redesigned main workflow (n8n import-ready)
-│                                         ⚠ Execute Workflow node IDs are placeholders —
-│                                         update after creating sub-workflows
 └── diagrams/
     ├── main-workflow.svg              ← redesigned main workflow architecture
     └── sub-workflow.svg              ← sub-workflow: Classify Mail internals
