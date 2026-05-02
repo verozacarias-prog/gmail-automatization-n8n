@@ -131,3 +131,26 @@ Three sheets in one workbook:
 ## Output
 
 Each processed email gets one Gmail label applied automatically. A daily summary email reports total emails processed, breakdown by category, breakdown by sender, and alerts on any processing discrepancy.
+
+## Version history
+
+### v1 — current (`main`)
+Three-workflow system as originally deployed and described above.
+
+### v2 — in development (`feature/v2-memory-optimization`)
+Architectural redesign addressing OOM crashes on n8n Cloud Starter when processing
+emails with PDF attachments.
+
+**Root causes identified:**
+- `Get History Memorial` (1,300 rows) re-fetched inside every loop iteration → N× accumulation in execution memory
+- Gmail `downloadAttachments: true` + binary data held in RAM with a sub-65s Wait node → ~1.1–1.5 MB per attachment, never flushed
+- `SplitInBatches` retains all iteration outputs simultaneously → linear memory growth across batches
+
+**Redesign summary:**
+- History loaded once before the loop, filtered per sender, injected as `history_data` into each item
+- Main loop body extracted into an `Execute Workflow` sub-workflow → memory freed after each batch
+- PDF processing extracted into a second sub-workflow with `keepSource: json` → binary discarded immediately after text extraction
+- Single 7am run split into two runs (9am + 4pm) to reduce peak memory per execution
+
+Full case study with root-cause analysis, architecture diagrams, and technical reference:
+[`v2/README.md`](./v2/README.md)
