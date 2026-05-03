@@ -1,0 +1,986 @@
+{
+  "name": "Email Organization v2 — memoria optimizada",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            },
+            {
+              "triggerAtHour": 16
+            }
+          ]
+        }
+      },
+      "id": "a3e7a4e8-4560-48e9-aa58-c6dfaf683514",
+      "name": "9 am clock",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2880,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM",
+          "mode": "list",
+          "cachedResultName": "ConfigOrganizationMails",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 629454139,
+          "mode": "list",
+          "cachedResultName": "Pendientes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit#gid=629454139"
+        },
+        "keepFirstRow": true
+      },
+      "id": "4b33a2c3-8332-49c0-8579-cfcbd102b308",
+      "name": "Clear Pendientes",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -2688,
+        416
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "H7q9Yx4vgRbrVNwZ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM",
+          "mode": "list",
+          "cachedResultName": "ConfigOrganizationMails",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "WhileList",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit#gid=0"
+        },
+        "options": {}
+      },
+      "id": "910f6201-61a6-4fc0-98dc-9b51772de578",
+      "name": "Get White List",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -2672,
+        624
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "H7q9Yx4vgRbrVNwZ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "limit": 25,
+        "filters": {
+          "q": "-label:gastos -label:remoto -label:estratégico-ia -label:ia-revisión -label:ia-spam -label:familia/importante -label:salud/natural -label:inversiones -in:sent"
+        }
+      },
+      "id": "eca4f56d-d3d4-44a8-a933-95fa0b3360f6",
+      "name": "Get 50 last message",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -2496,
+        624
+      ],
+      "webhookId": "4b4cd8ae-f180-4562-ba32-02bfc7f30781",
+      "executeOnce": true,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "eTRbfapaMMpAgV3H",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "total_entrada",
+        "options": {}
+      },
+      "id": "161025e2-5c2a-4248-9e38-99bc6f8eee7d",
+      "name": "Total Getter Mails",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -2320,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst items = $input.all();\nconst total_entrada_items = items[0].json.total_entrada || [];\n\nstaticData.total_entrada = total_entrada_items.length;\nstaticData.contador = 0;\nstaticData.detalle_categorias = {};\nstaticData.detalle_fuentes = {};\n\nreturn total_entrada_items.map(i => ({ json: i }));"
+      },
+      "id": "ac0f0416-013e-441f-874e-86fb1a80121d",
+      "name": "Code: Guardar Total Entrada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2128,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "mails",
+        "options": {}
+      },
+      "id": "64ec7c1a-d556-414a-bd2c-cc7c2f4d641a",
+      "name": "Aggregate mails",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -1712,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM",
+          "mode": "list",
+          "cachedResultName": "ConfigOrganizationMails",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1751572867,
+          "mode": "list",
+          "cachedResultName": "MemoriaHistorica",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit#gid=1751572867"
+        },
+        "options": {}
+      },
+      "id": "026cba23-cf86-4d0d-a1d2-67d2ef441363",
+      "name": "Get History Memorial",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -1904,
+        720
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "H7q9Yx4vgRbrVNwZ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "history",
+        "options": {}
+      },
+      "id": "42c9df4e-b376-4b45-8507-a83e0a9b7fa5",
+      "name": "Aggregate history",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -1712,
+        720
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "62c8bf81-e2ee-42bd-9dc6-6c68cb130533",
+      "name": "Merge history+mails",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        -1472,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst mails   = items[0].json.mails   || [];\nconst history = items[1].json.history || [];\nconst whitelist = $('Get White List').all();\n\n// Extrae solo el email de strings tipo \"Nombre <email@dominio.com>\"\nconst extractEmail = (from) => {\n  if (!from) return '';\n  const match = from.match(/<([^>]+)>/);\n  return match ? match[1].toLowerCase() : from.toLowerCase();\n};\n\n// Mapa de historial por remitente (email limpio)\nconst historyMap = {};\nfor (const h of history) {\n  const remitente = (h.remitente || '').trim().toLowerCase();\n  if (!historyMap[remitente]) historyMap[remitente] = [];\n  historyMap[remitente].push(h);\n}\n\nreturn mails.map(mail => {\n  const emailLimpio = extractEmail(mail.From);\n  return {\n    json: {\n      ...mail,\n      history_data: historyMap[emailLimpio] || [],\n      isWhitelisted: whitelist.some(w =>\n        emailLimpio.includes(w.json.Remitente?.toLowerCase())\n      )\n    }\n  };\n});"
+      },
+      "id": "a588f671-12a6-4b3e-9a3a-659cf4e9ef63",
+      "name": "Code: Preparar history por remitente",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1280,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 5,
+        "options": {}
+      },
+      "id": "5ba3b68d-b406-4c8d-9ecc-04e6ab4e0ae5",
+      "name": "Loop Over 5 messages",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1024,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "id": "f17bf4d1-7e99-4f0e-8a0e-c2163cc5b0b3",
+      "name": "Wait",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -416,
+        640
+      ],
+      "webhookId": "9f67a3e9-2dcb-4cd3-9d85-7f0f93bcf6aa"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM",
+          "mode": "list",
+          "cachedResultName": "ConfigOrganizationMails",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 629454139,
+          "mode": "list",
+          "cachedResultName": "Pendientes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit#gid=629454139"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "status",
+              "lookupValue": "pending"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "93f4e58d-97ed-4773-9e75-bd97d3d0fdff",
+      "name": "Get Pendins",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -880,
+        432
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "H7q9Yx4vgRbrVNwZ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9cb50142-030c-4d41-9039-73233024afd0",
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            },
+            {
+              "id": "4f7dc148-8d01-4868-a7cf-1c36b7c4ea0a",
+              "leftValue": "={{ $json.row_number }}",
+              "rightValue": "",
+              "operator": {
+                "type": "number",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a01eb6d0-c3c9-4fc2-8abe-4843a08633df",
+      "name": "Hay pendientes?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -704,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 3,
+        "options": {}
+      },
+      "id": "f8548cad-21f2-49d6-8870-3f93b51ca8ad",
+      "name": "Loop 3 pending",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -480,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM",
+          "mode": "list",
+          "cachedResultName": "ConfigOrganizationMails",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 629454139,
+          "mode": "list",
+          "cachedResultName": "Pendientes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1tJIs76n2mZx-bViiiv4sR21BVSTnHDUAuyxoORPMslM/edit#gid=629454139"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "done",
+            "id": "={{ $json.id }}",
+            "from": "={{ $json.from }}",
+            "subject": "={{ $json.subject }}",
+            "ia_prompt": "={{ $json.ia_prompt }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "from",
+              "displayName": "from",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "subject",
+              "displayName": "subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ia_prompt",
+              "displayName": "ia_prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "d91db126-7421-4943-9180-242fd7ee657e",
+      "name": "Update Done",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        48,
+        432
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "H7q9Yx4vgRbrVNwZ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{ \"status\": \"ok\", \"info\": \"FIN: No hay pendientes para analizar\" } \n",
+        "options": {}
+      },
+      "id": "94d516bf-3e7a-488f-b0e4-ca0e9afda5e9",
+      "name": "FIN",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -688,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\n\nconst resultado = {\n  total_entrada: staticData.total_entrada || 0,\n  total_procesados: staticData.contador || 0,\n  detalle_categorias: staticData.detalle_categorias || {},\n  detalle_fuentes: staticData.detalle_fuentes || {}\n};\n\nreturn [{ json: resultado }];"
+      },
+      "id": "88346334-9e92-4f82-9115-10ea384c5652",
+      "name": "Emitir Metricas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -336,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst data = items[0]?.json;\n\nconst total_entrada   = data.total_entrada || 0;\nconst total_procesados = data.total_procesados || 0;\n\nconst hay_discrepancia = total_entrada !== total_procesados;\nconst discrepancia = total_entrada - total_procesados;\n\nconst detalle_categorias = Object.entries(data.detalle_categorias || {}).map(([categoria, total]) => ({ categoria, total }));\nconst detalle_fuentes = Object.entries(data.detalle_fuentes || {}).map(([fuente, total]) => ({ fuente, total }));\n\nreturn [{\n  json: {\n    validacion: {\n      hay_discrepancia,\n      total_entrada,\n      total_procesados,\n      discrepancia,\n      explicacion: hay_discrepancia \n        ? `Se perdieron ${Math.abs(discrepancia)} emails durante el procesamiento` \n        : 'Todos los emails fueron procesados correctamente'\n    },\n    detalle_categorias,\n    detalle_fuentes,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "fef47676-2f8c-4074-8d42-e940eba39499",
+      "name": "Code: Validación y Reporte",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ $json.validacion.hay_discrepancia }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8620f55a-856b-4458-a5b2-5c7dccb106d6",
+      "name": "IF: Hay Discrepancia?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        32,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "vero.zacarias@gmail.com",
+        "subject": "⚠️ Alerta: Discrepancia en Clasificación de Emails",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;\">\n\n  <div style=\"background-color: #c0392b; color: white; padding: 15px 20px; border-radius: 8px 8px 0 0;\">\n    <h2 style=\"margin: 0; font-size: 18px;\">⚠️ Discrepancia Detectada en Clasificación de Emails</h2>\n  </div>\n\n  <div style=\"background-color: white; padding: 20px; border: 1px solid #ddd; border-radius: 0 0 8px 8px;\">\n\n    <!-- RESUMEN -->\n    <div style=\"margin-bottom: 20px;\">\n      <h3 style=\"color: #2c3e50; border-bottom: 2px solid #e74c3c; padding-bottom: 5px;\">📊 Resumen de Validación</h3>\n      <table style=\"width: 100%; border-collapse: collapse;\">\n        <tr style=\"background-color: #f2f2f2;\">\n          <td style=\"padding: 8px 12px; font-weight: bold;\">Emails que entraron</td>\n          <td style=\"padding: 8px 12px;\">{{ $json.validacion.total_entrada }}</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 8px 12px; font-weight: bold;\">Emails procesados</td>\n          <td style=\"padding: 8px 12px;\">{{ $json.validacion.total_procesados }}</td>\n        </tr>\n        <tr style=\"background-color: #fdecea;\">\n          <td style=\"padding: 8px 12px; font-weight: bold; color: #c0392b;\">❌ Discrepancia</td>\n          <td style=\"padding: 8px 12px; color: #c0392b; font-weight: bold;\">{{ $json.validacion.discrepancia }} emails</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 8px 12px; font-weight: bold;\">Explicación</td>\n          <td style=\"padding: 8px 12px;\">{{ $json.validacion.explicacion }}</td>\n        </tr>\n      </table>\n    </div>\n\n    <!-- CATEGORÍAS -->\n    <div style=\"margin-bottom: 20px;\">\n      <h3 style=\"color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px;\">🏷️ Detalle por Categoría</h3>\n      <table style=\"width: 100%; border-collapse: collapse;\">\n{{ $json.detalle_categorias.map(item => `\n<tr>\n  <td style=\"padding: 8px 12px; border-bottom: 1px solid #eee;\">${item.categoria}</td>\n  <td style=\"padding: 8px 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;\">${item.total} emails</td>\n</tr>`).join('') }}\n      </table>\n    </div>\n\n    <!-- FUENTES -->\n    <div style=\"margin-bottom: 20px;\">\n      <h3 style=\"color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px;\">📧 Detalle por Fuente</h3>\n      <table style=\"width: 100%; border-collapse: collapse;\">\n{{ $json.detalle_fuentes.map(item => `\n<tr>\n  <td style=\"padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 13px;\">${item.fuente}</td>\n  <td style=\"padding: 8px 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;\">${item.total} mails</td>\n</tr>`).join('') }}\n      </table>\n    </div>\n\n    <!-- POSIBLES CAUSAS -->\n    <div style=\"background-color: #fef9e7; border-left: 4px solid #f39c12; padding: 12px 16px; margin-bottom: 20px; border-radius: 4px;\">\n      <h3 style=\"color: #e67e22; margin-top: 0;\">⚠️ Posibles Causas de Pérdida</h3>\n      <ul style=\"margin: 0; padding-left: 20px; color: #555;\">\n        <li>Errores en Size Filter</li>\n        <li>Errores en Get message details</li>\n        <li>Errores en clasificación AI</li>\n        <li>Errores en extracción de PDF</li>\n        <li>Timeouts o rate limits de Gmail</li>\n      </ul>\n    </div>\n\n    <!-- FOOTER -->\n    <div style=\"text-align: right; color: #999; font-size: 12px; border-top: 1px solid #eee; padding-top: 10px;\">\n      🕐 {{ $json.timestamp }}\n    </div>\n\n  </div>\n</div>",
+        "options": {}
+      },
+      "id": "a2afa143-9b6c-4249-bb38-7c574b61ffaa",
+      "name": "Gmail: Alerta de Discrepancia",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        224,
+        80
+      ],
+      "webhookId": "df002889-f18a-40ad-8ada-5fc23581a78a",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "eTRbfapaMMpAgV3H",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "vero.zacarias@gmail.com",
+        "subject": "✅ Clasificación de Emails Exito",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;\">\n\n  <div style=\"background-color: #27ae60; color: white; padding: 15px 20px; border-radius: 8px 8px 0 0;\">\n    <h2 style=\"margin: 0; font-size: 18px;\">✅ Clasificación de Emails Completada Exitosamente</h2>\n  </div>\n\n  <div style=\"background-color: white; padding: 20px; border: 1px solid #ddd; border-radius: 0 0 8px 8px;\">\n\n    <!-- RESUMEN -->\n    <div style=\"margin-bottom: 20px;\">\n      <h3 style=\"color: #2c3e50; border-bottom: 2px solid #27ae60; padding-bottom: 5px;\">📊 Resumen de Validación</h3>\n      <table style=\"width: 100%; border-collapse: collapse;\">\n        <tr style=\"background-color: #f2f2f2;\">\n          <td style=\"padding: 8px 12px; font-weight: bold;\">Emails que entraron</td>\n          <td style=\"padding: 8px 12px;\">{{ $json.validacion.total_entrada }}</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 8px 12px; font-weight: bold;\">Emails procesados</td>\n          <td style=\"padding: 8px 12px;\">{{ $json.validacion.total_procesados }}</td>\n        </tr>\n        <tr style=\"background-color: #eafaf1;\">\n          <td style=\"padding: 8px 12px; font-weight: bold; color: #27ae60;\">✅ Estado</td>\n          <td style=\"padding: 8px 12px; color: #27ae60; font-weight: bold;\">{{ $json.validacion.explicacion }}</td>\n        </tr>\n      </table>\n    </div>\n\n    <!-- CATEGORÍAS -->\n    <div style=\"margin-bottom: 20px;\">\n      <h3 style=\"color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px;\">🏷️ Detalle por Categoría</h3>\n      <table style=\"width: 100%; border-collapse: collapse;\">\n        {{ $json.detalle_categorias.map(item => `\n        <tr>\n          <td style=\"padding: 8px 12px; border-bottom: 1px solid #eee;\">${item.categoria}</td>\n          <td style=\"padding: 8px 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;\">${item.total} emails</td>\n        </tr>`).join('') }}\n      </table>\n    </div>\n\n    <!-- FUENTES -->\n    <div style=\"margin-bottom: 20px;\">\n      <h3 style=\"color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px;\">📧 Detalle por Fuente</h3>\n      <table style=\"width: 100%; border-collapse: collapse;\">\n        {{ $json.detalle_fuentes.map(item => `\n        <tr>\n          <td style=\"padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 13px;\">${item.fuente}</td>\n          <td style=\"padding: 8px 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;\">${item.total} mails</td>\n        </tr>`).join('') }}\n      </table>\n    </div>\n\n    <!-- FOOTER -->\n    <div style=\"text-align: right; color: #999; font-size: 12px; border-top: 1px solid #eee; padding-top: 10px;\">\n      🕐 {{ $json.timestamp }}\n    </div>\n\n  </div>\n</div>",
+        "options": {}
+      },
+      "id": "43042811-f8bd-4239-9586-0c8f9621e973",
+      "name": "Gmail: Exito",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        224,
+        256
+      ],
+      "webhookId": "df002889-f18a-40ad-8ada-5fc23581a78a",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "eTRbfapaMMpAgV3H",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "zkUnr5WJFvddVOfo",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/zkUnr5WJFvddVOfo",
+          "cachedResultName": "Sub - Classify Mail (v2)"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -800,
+        640
+      ],
+      "id": "30410143-5196-44dc-b998-332b61f85e8b",
+      "name": "Call 'Sub - Classify Mail (v2)'"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "ZaccLVAt2bwBuBZA",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/ZaccLVAt2bwBuBZA",
+          "cachedResultName": "Sub - Process PDF (v2)"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -304,
+        432
+      ],
+      "id": "5de4b26c-e65f-4e02-9890-e7dc2c67cb7e",
+      "name": "Execute Workflow: Procesar PDF"
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\n\nstaticData.contador = (staticData.contador || 0) + $input.all().length;\n\nif (!staticData.detalle_categorias) staticData.detalle_categorias = {};\nif (!staticData.detalle_fuentes) staticData.detalle_fuentes = {};\n\n$input.all().forEach(item => {\n  const categoria = item.json.categoria || 'SIN_CATEGORIA';\n  const fuente = item.json.from || 'desconocido';\n  staticData.detalle_categorias[categoria] = (staticData.detalle_categorias[categoria] || 0) + 1;\n  staticData.detalle_fuentes[fuente] = (staticData.detalle_fuentes[fuente] || 0) + 1;\n});\n\nreturn $input.all().map(i => ({ json: i.json }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -608,
+        640
+      ],
+      "id": "fb647402-1bad-4bbb-9f4f-c74d9c293e2a",
+      "name": "Contar Mail Procesado"
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\n\nstaticData.contador = (staticData.contador || 0) + $input.all().length;\n\nif (!staticData.detalle_categorias) staticData.detalle_categorias = {};\nif (!staticData.detalle_fuentes) staticData.detalle_fuentes = {};\n\n$input.all().forEach(item => {\n  const categoria = item.json.categoria || 'SIN_CATEGORIA';\n  const fuente = item.json.from || 'desconocido';\n  staticData.detalle_categorias[categoria] = (staticData.detalle_categorias[categoria] || 0) + 1;\n  staticData.detalle_fuentes[fuente] = (staticData.detalle_fuentes[fuente] || 0) + 1;\n});\n\nreturn $input.all().map(i => ({ json: i.json }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        432
+      ],
+      "id": "169f1e9f-6976-47b3-affe-ffe4c8188351",
+      "name": "Contar Mail Procesado1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "9 am clock": {
+      "main": [
+        [
+          {
+            "node": "Clear Pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Pendientes": {
+      "main": [
+        [
+          {
+            "node": "Get White List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get White List": {
+      "main": [
+        [
+          {
+            "node": "Get 50 last message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get 50 last message": {
+      "main": [
+        [
+          {
+            "node": "Total Getter Mails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Total Getter Mails": {
+      "main": [
+        [
+          {
+            "node": "Code: Guardar Total Entrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Guardar Total Entrada": {
+      "main": [
+        [
+          {
+            "node": "Aggregate mails",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get History Memorial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate mails": {
+      "main": [
+        [
+          {
+            "node": "Merge history+mails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get History Memorial": {
+      "main": [
+        [
+          {
+            "node": "Aggregate history",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate history": {
+      "main": [
+        [
+          {
+            "node": "Merge history+mails",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge history+mails": {
+      "main": [
+        [
+          {
+            "node": "Code: Preparar history por remitente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Preparar history por remitente": {
+      "main": [
+        [
+          {
+            "node": "Loop Over 5 messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over 5 messages": {
+      "main": [
+        [
+          {
+            "node": "Get Pendins",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call 'Sub - Classify Mail (v2)'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over 5 messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pendins": {
+      "main": [
+        [
+          {
+            "node": "Hay pendientes?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hay pendientes?": {
+      "main": [
+        [
+          {
+            "node": "Loop 3 pending",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "FIN",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop 3 pending": {
+      "main": [
+        [
+          {
+            "node": "Emitir Metricas",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute Workflow: Procesar PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Done": {
+      "main": [
+        [
+          {
+            "node": "Loop 3 pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FIN": {
+      "main": [
+        [
+          {
+            "node": "Emitir Metricas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Emitir Metricas": {
+      "main": [
+        [
+          {
+            "node": "Code: Validación y Reporte",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Validación y Reporte": {
+      "main": [
+        [
+          {
+            "node": "IF: Hay Discrepancia?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Hay Discrepancia?": {
+      "main": [
+        [
+          {
+            "node": "Gmail: Alerta de Discrepancia",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gmail: Exito",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'Sub - Classify Mail (v2)'": {
+      "main": [
+        [
+          {
+            "node": "Contar Mail Procesado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow: Procesar PDF": {
+      "main": [
+        [
+          {
+            "node": "Contar Mail Procesado1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contar Mail Procesado": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contar Mail Procesado1": {
+      "main": [
+        [
+          {
+            "node": "Update Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "5a4e8d4d-85ee-4e8c-8f56-9ec93fcc1e66",
+  "meta": {
+    "instanceId": "90d0cd775b8b317d93028fa9dac1a8444d7abab6b6d67d7d742eaaaba2878ec3"
+  },
+  "id": "Cf7zb2kXGTz1cPP3",
+  "tags": []
+}

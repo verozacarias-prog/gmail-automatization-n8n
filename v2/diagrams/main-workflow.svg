@@ -1,0 +1,84 @@
+<svg width="700" height="760" viewBox="0 0 700 760" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, Arial, sans-serif">
+  <title>Redesigned Main Workflow — Email Organization v2</title>
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arr-dashed" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#B4B2A9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <!-- N1: Inicialización (gray) -->
+  <rect x="175" y="30" width="350" height="56" rx="8" fill="#F1EFE8" stroke="#888780" stroke-width="1"/>
+  <text x="350" y="49" font-size="14" font-weight="600" fill="#444441" text-anchor="middle" dominant-baseline="central">Inicialización</text>
+  <text x="350" y="68" font-size="12" fill="#5F5E5A" text-anchor="middle" dominant-baseline="central">9am · 16pm · Clear · White List · Get 50 mails</text>
+
+  <line x1="350" y1="86" x2="350" y2="114" stroke="#888780" stroke-width="1" marker-end="url(#arr)"/>
+
+  <!-- N2: Get History Memorial (amber — KEY CHANGE 1) -->
+  <rect x="125" y="116" width="450" height="56" rx="8" fill="#FAEEDA" stroke="#BA7517" stroke-width="1.5"/>
+  <text x="350" y="135" font-size="14" font-weight="600" fill="#412402" text-anchor="middle" dominant-baseline="central">Get History Memorial</text>
+  <text x="350" y="154" font-size="12" fill="#633806" text-anchor="middle" dominant-baseline="central">★ Change 1 — 1,300 rows loaded ONCE, before the loop</text>
+
+  <line x1="350" y1="172" x2="350" y2="200" stroke="#888780" stroke-width="1" marker-end="url(#arr)"/>
+
+  <!-- N3: Loop Over 5 messages (gray) -->
+  <rect x="205" y="202" width="290" height="56" rx="8" fill="#F1EFE8" stroke="#888780" stroke-width="1"/>
+  <text x="350" y="221" font-size="14" font-weight="600" fill="#444441" text-anchor="middle" dominant-baseline="central">Loop Over 5 messages</text>
+  <text x="350" y="240" font-size="12" fill="#5F5E5A" text-anchor="middle" dominant-baseline="central">batches of 5 mails</text>
+
+  <!-- A3: batch arrow -->
+  <line x1="350" y1="258" x2="350" y2="286" stroke="#888780" stroke-width="1" marker-end="url(#arr)"/>
+  <text x="362" y="272" font-size="11" fill="#888780" dominant-baseline="central">each batch</text>
+
+  <!-- N4: Execute Workflow classify (purple — KEY CHANGE 2) -->
+  <rect x="145" y="288" width="410" height="56" rx="8" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.5"/>
+  <text x="350" y="307" font-size="14" font-weight="600" fill="#26215C" text-anchor="middle" dominant-baseline="central">Execute Sub-workflow: Classify Mail</text>
+  <text x="350" y="326" font-size="12" fill="#3C3489" text-anchor="middle" dominant-baseline="central">Change 2 — one batch, returns minimal summary, frees memory</text>
+
+  <!-- A4: loop-back (dashed) -->
+  <path d="M 555 316 L 592 316 L 592 230 L 495 230" fill="none" stroke="#B4B2A9" stroke-width="1" stroke-dasharray="5 3" marker-end="url(#arr-dashed)"/>
+  <text x="600" y="273" font-size="11" fill="#B4B2A9" dominant-baseline="central">Wait 2s</text>
+
+  <!-- A5: loop done (left path) -->
+  <path d="M 205 230 L 138 230 L 138 424 L 205 424" fill="none" stroke="#888780" stroke-width="1" marker-end="url(#arr)"/>
+  <text x="132" y="327" font-size="11" fill="#888780" text-anchor="end" dominant-baseline="central">done</text>
+
+  <!-- N5: Hay pendientes (gray) -->
+  <rect x="205" y="396" width="290" height="56" rx="8" fill="#F1EFE8" stroke="#888780" stroke-width="1"/>
+  <text x="350" y="415" font-size="14" font-weight="600" fill="#444441" text-anchor="middle" dominant-baseline="central">Any pending PDFs?</text>
+  <text x="350" y="434" font-size="12" fill="#5F5E5A" text-anchor="middle" dominant-baseline="central">reads Pendientes sheet</text>
+
+  <!-- A6: yes -->
+  <line x1="350" y1="452" x2="350" y2="480" stroke="#888780" stroke-width="1" marker-end="url(#arr)"/>
+  <text x="362" y="466" font-size="11" fill="#888780" dominant-baseline="central">yes</text>
+
+  <!-- N6: Execute Workflow PDF (purple — KEY CHANGE 3) -->
+  <rect x="145" y="482" width="410" height="56" rx="8" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.5"/>
+  <text x="350" y="501" font-size="14" font-weight="600" fill="#26215C" text-anchor="middle" dominant-baseline="central">Execute Sub-workflow: Process PDF</text>
+  <text x="350" y="520" font-size="12" fill="#3C3489" text-anchor="middle" dominant-baseline="central">Change 3 — extracts text, discards binary (keepSource: json)</text>
+
+  <!-- A7: no path -->
+  <path d="M 495 424 L 572 424 L 572 616 L 525 616" fill="none" stroke="#888780" stroke-width="1" marker-end="url(#arr)"/>
+  <text x="503" y="418" font-size="11" fill="#888780" dominant-baseline="central">no</text>
+
+  <!-- A8: pdf done -->
+  <line x1="350" y1="538" x2="350" y2="586" stroke="#888780" stroke-width="1" marker-end="url(#arr)"/>
+
+  <!-- N7: Metricas (gray) -->
+  <rect x="175" y="588" width="350" height="56" rx="8" fill="#F1EFE8" stroke="#888780" stroke-width="1"/>
+  <text x="350" y="607" font-size="14" font-weight="600" fill="#444441" text-anchor="middle" dominant-baseline="central">Metrics, report &amp; alerts</text>
+  <text x="350" y="626" font-size="12" fill="#5F5E5A" text-anchor="middle" dominant-baseline="central">Emitir Métricas · Validación · Gmail Alerts</text>
+
+  <!-- Legend -->
+  <rect x="40" y="666" width="16" height="16" rx="3" fill="#F1EFE8" stroke="#888780" stroke-width="1"/>
+  <text x="62" y="674" font-size="12" fill="#5F5E5A" dominant-baseline="central">flow control</text>
+  <rect x="200" y="666" width="16" height="16" rx="3" fill="#FAEEDA" stroke="#BA7517" stroke-width="1.5"/>
+  <text x="222" y="674" font-size="12" fill="#633806" dominant-baseline="central">single load (change 1)</text>
+  <rect x="420" y="666" width="16" height="16" rx="3" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.5"/>
+  <text x="442" y="674" font-size="12" fill="#3C3489" dominant-baseline="central">sub-workflows (changes 2 &amp; 3)</text>
+
+  <!-- Title -->
+  <text x="350" y="718" font-size="11" fill="#B4B2A9" text-anchor="middle">Main Workflow — Email Organization v2 (redesigned for memory safety)</text>
+</svg>
