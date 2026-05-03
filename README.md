@@ -148,9 +148,10 @@ emails with PDF attachments.
 
 **Redesign summary:**
 - History loaded once before the loop, filtered per sender, injected as `history_data` into each item
-- Main loop body extracted into an `Execute Workflow` sub-workflow → memory freed after each batch
+- Main loop body extracted into an `Execute Workflow` sub-workflow → memory freed after each  mail (runs once per item, not per batch)
 - PDF processing extracted into a second sub-workflow with `keepSource: json` → binary discarded immediately after text extraction
 - Single 7am run split into two runs (9am + 4pm) to reduce peak memory per execution
+- Attachment mime type filter added to PDF sub-workflow → prevents crashes on non-PDF attachments (.ics, calendar invites, etc.)
 
 Full case study with root-cause analysis, architecture diagrams, and technical reference:
 [`v2/README.md`](./v2/README.md)

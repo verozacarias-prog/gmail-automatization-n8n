@@ -72,30 +72,39 @@ The fix is **structural, not configurational**. Three changes address each root 
 
 ### Change 1 — Load `Get History Memorial` once, before the loop
 
-The Sheets node is moved outside `SplitInBatches`. Because the data now needs to reach the sub-workflow (see Change 2), it is:
+The Sheets node is moved outside `SplitInBatches`. The data is then distributed to each mail item before the loop starts:
 
 1. **Aggregated** into a single item (`{history: [...]}`)
 2. **Merged** with the aggregated mail items (`{mails: [...]}`)
-3. **Distributed** — a `Code` node filters history by sender (`h.remitente === mail.from`) and injects only the relevant rows as `history_data` into each mail item
+3. **Distributed** — a `Code` node (`Code: Preparar history por remitente`) filters history by sender and injects only the relevant rows as `history_data` into each mail item. The same node also injects `isWhitelisted` per item, so the whitelist check inside the sub-workflow doesn't require a Sheets call either.
 
 This means 1,300 rows are loaded **once**, filtered **once per sender**, and carried as a small JSON field per item rather than being re-fetched on every iteration.
 
-### Change 2 — Main loop calls a sub-workflow per batch
+> **Implementation note:** The sender field from the Gmail API arrives as `"Display Name <email@domain.com>"`. The distribution code extracts the email address with a regex before matching against the history map (`historyMap[extractEmail(mail.From)]`).
 
-The entire inner loop body (Size Filter → WhiteList check → Get message details → Clean HTML → AI classification → actions) is extracted into a separate n8n workflow. The main workflow calls it via `Execute Workflow` (with `waitForSubWorkflow: true`).
+### Change 2 — Main loop calls a sub-workflow per mail
 
-Key properties of this pattern:
-- The sub-workflow receives a batch and returns only a minimal summary `{ id, categoria, acción_tomada }`
-- When the sub-workflow finishes, its execution memory is freed
-- The main loop accumulates only the small summaries, not the full Gmail payloads
-- `Wait 2s` (below 65s threshold, so still in-memory) now holds only the compact result, not the binary data
+The entire inner loop body is extracted into a separate n8n workflow (`Sub - Classify Mail (v2)`). The main workflow calls it via `Execute Workflow` in **"Run once for each item"** mode — one sub-workflow execution per mail, not per batch.
+
+Key properties:
+- Each sub-workflow execution receives one mail item (with `history_data` and `isWhitelisted` already injected)
+- When the sub-workflow finishes, its execution memory is freed before the next mail is processed
+- The main loop accumulates only the small return summaries, not the full Gmail payloads
+- `Wait 2s` (below 65s threshold, so still in-memory) now holds only the compact result
+
+The sub-workflow has **independent return paths per branch** — no final merge node. Each branch (too big, whitelisted, classified, pending PDF) ends in its own `Return` Code node that emits the same minimal structure `{ id, from, subject, categoria, confianza, needs_pdf, accion_tomada }`. This avoids the problem of a merge node receiving `{ status: "ok" }` from a sub-workflow call instead of the original mail data.
+
+`Contar Mail Procesado` lives in the **main workflow** (after the `Execute Workflow` node returns), not inside the sub-workflow. This is required because `$getWorkflowStaticData('global')` is scoped per workflow — a sub-workflow cannot write to the parent's static data.
 
 ### Change 3 — PDF processing sub-workflow with `keepSource: json`
 
-The pending PDF loop (`Loop 3 pending`) is similarly refactored to call a dedicated sub-workflow. Inside it:
+The pending PDF loop (`Loop 3 pending`) calls a dedicated sub-workflow (`Sub - Process PDF (v2)`). Inside it:
 - Gmail fetches the attachment with `downloadAttachments: true`
-- `Extract from File` runs with `keepSource: json` — this **discards the binary** from the output item, retaining only the extracted text and the original JSON fields
-- The binary never accumulates because the sub-workflow completes and releases memory before the next PDF is processed
+- An **attachment type filter** (IF node on mime type) prevents the workflow from attempting PDF extraction on non-PDF attachments (`.ics`, `.docx`, etc.) — a real production case that caused crashes
+- `Extract from File` runs with `keepSource: json` — this **discards the binary** from the output item immediately after text extraction
+- The binary never accumulates because the sub-workflow completes and releases memory before the next item
+
+`Contar Mail Procesado` is also placed in the main workflow after the PDF sub-workflow returns, for the same `staticData` scoping reason.
 
 ---
 
@@ -103,7 +112,7 @@ The pending PDF loop (`Loop 3 pending`) is similarly refactored to call a dedica
 
 ### Redesigned Main Workflow
 
-26 nodes (down from 48 in the original). All heavy processing delegated to sub-workflows.
+27 nodes (down from 48 in the original). All heavy processing delegated to sub-workflows.
 
 ![Main workflow redesign](./diagrams/main-workflow.svg)
 
@@ -116,9 +125,11 @@ The pending PDF loop (`Loop 3 pending`) is similarly refactored to call a dedica
 
 ### Sub-workflow: Classify Mail
 
-Receives a batch of mails, each pre-loaded with `history_data`. The `Get IA request` node reads `$json.history_data` directly — no Sheets call inside the sub-workflow.
+Receives one mail item pre-loaded with `history_data` and `isWhitelisted`. The `Get IA request` node reads `$json.history_data` directly — no Sheets call inside the sub-workflow.
 
 ![Sub-workflow: classify mail](./diagrams/sub-workflow.svg)
+
+Each branch ends in an independent `Return` node. No merge at the end.
 
 ---
 
@@ -127,10 +138,13 @@ Receives a batch of mails, each pre-loaded with `history_data`. The `Get IA requ
 | # | What changed | Why |
 |---|---|---|
 | 1 | `Get History Memorial` moved before the loop | Eliminates N × 1,300-row accumulation in execution memory |
-| 2 | Inner loop body → `Execute Workflow: Classify Mail` | Sub-workflow memory freed after each batch; only small summary returned |
+| 2 | Inner loop body → `Execute Workflow: Classify Mail` (one per mail) | Sub-workflow memory freed after each mail; only small summary returned |
 | 3 | PDF loop body → `Execute Workflow: Process PDF` with `keepSource: json` | Binary attachment released immediately after text extraction |
 | 4 | Two schedule triggers (9am + 4pm) replacing single 7am trigger | Splits 50-email daily load into two 25-email runs for lower peak memory |
-| 5 | `history_data` injected per mail item (filtered by sender) | Passes only relevant history rows to sub-workflow, not 1,300 raw rows |
+| 5 | `history_data` + `isWhitelisted` injected per mail item before the loop | Passes only relevant data to sub-workflow; no Sheets calls inside loops |
+| 6 | Independent return paths per branch (no final merge) | Avoids losing mail data when sub-workflow calls return `{ status: ok }` |
+| 7 | Attachment mime type filter in PDF sub-workflow | Prevents crash on non-PDF attachments (`.ics`, calendar invites, etc.) |
+| 8 | `Contar Mail Procesado` in main workflow, not sub-workflows | `$getWorkflowStaticData` is scoped per workflow — sub-workflows cannot write to parent counters |
 
 ---
 
@@ -138,7 +152,7 @@ Receives a batch of mails, each pre-loaded with `history_data`. The `Get IA requ
 
 | | Original | Redesigned main workflow |
 |---|---|---|
-| Total nodes | 48 | 26 |
+| Total nodes | 48 | 27 |
 | Nodes inside main loop body | ~18 | 1 (Execute Workflow) |
 | Google Sheets calls per 25-mail run | 5–6 (history re-fetched each iteration) | 1 (history loaded once) |
 | Binary data in main workflow RAM | Yes (full PDF buffers) | No (handled and freed in sub-workflow) |
@@ -149,7 +163,7 @@ Receives a batch of mails, each pre-loaded with `history_data`. The `Get IA requ
 
 ```
 ├── README.md                          ← this document
-├── n8n-cloud-technical-reference.md   ← full technical research (ES): memory limits,
+├── n8n-cloud-technical-reference.md   ← full technical research: memory limits,
 │                                         SplitInBatches behavior, Wait node threshold,
 │                                         binary data handling, Google Sheets in loops
 └── diagrams/
